@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: uniconnect_mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: uniconnect
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - uniconnect
+
+  backend:
+    build: ./backend
+    container_name: uniconnect_backend
+    ports:
+      - "5000:5000"
+    environment:
+      NODE_ENV: development
+      MONGODB_URI: mongodb://root:password@mongodb:27017/uniconnect?authSource=admin
+      JWT_SECRET: your_jwt_secret_key_here
+      CORS_ORIGIN: http://localhost:5173
+    depends_on:
+      - mongodb
+    volumes:
+      - ./backend/src:/app/src
+    networks:
+      - uniconnect
+    command: npm run dev
+
+  frontend:
+    build: ./frontend
+    container_name: uniconnect_frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:5000/api
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend/src:/app/src
+    networks:
+      - uniconnect
+    command: npm run dev
+
+volumes:
+  mongodb_data:
+
+networks:
+  uniconnect:
+    driver: bridge
