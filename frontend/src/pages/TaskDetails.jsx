@@ -30,10 +30,30 @@ const TaskDetails = () => {
     try {
       await axios.post(`http://localhost:5000/api/tasks/${taskId}/comments`, {
         text: commentText,
-        author: 'Current User' // Simulating current user
+        author: 'Current User'
       });
       setCommentText('');
-      fetchTaskDetails(); // Refresh
+      fetchTaskDetails();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // ✅ NEW: format status nicely
+  const formatStatus = (status) => {
+    if (status === "todo") return "To Do";
+    if (status === "inprogress") return "In Progress";
+    if (status === "done") return "Done";
+    return status;
+  };
+
+  // ✅ NEW: update status
+  const updateStatus = async (newStatus) => {
+    try {
+      await axios.patch(`http://localhost:5000/api/tasks/${taskId}/status`, {
+        status: newStatus
+      });
+      fetchTaskDetails();
     } catch (err) {
       console.error(err);
     }
@@ -52,19 +72,38 @@ const TaskDetails = () => {
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-3xl font-bold mb-3">{task.title}</h1>
+
+            {/* ✅ NEW: Status Buttons */}
+            <div className="flex gap-2 mb-4">
+              <button onClick={() => updateStatus("todo")} className="btn btn-secondary text-sm">To Do</button>
+              <button onClick={() => updateStatus("inprogress")} className="btn btn-secondary text-sm">In Progress</button>
+              <button onClick={() => updateStatus("done")} className="btn btn-success text-sm">Done</button>
+            </div>
+
             <div className="flex flex-wrap gap-4 text-slate-400 mb-8 max-w-2xl">
               <span className="flex items-center gap-1">
-                <CheckCircle size={16} className={task.status === 'Done' ? 'text-success' : 'text-slate-500'} /> {task.status}
+                <CheckCircle 
+                  size={16} 
+                  className={task.status === 'done' ? 'text-success' : 'text-slate-500'} 
+                /> 
+                {formatStatus(task.status)}
               </span>
+
               <span className="flex items-center gap-2">
-                <Flag size={16} /> <span className={`priority-badge priority-${task.priority}`}>{task.priority}</span>
+                <Flag size={16} /> 
+                <span className={`priority-badge priority-${task.priority}`}>
+                  {task.priority}
+                </span>
               </span>
+
               <span className="flex items-center gap-1">
                 <User size={16} /> {task.assignedTo || 'Unassigned'}
               </span>
+
               {task.dueDate && (
                 <span className="flex items-center gap-1">
-                  <Calendar size={16} className="text-danger" /> {new Date(task.dueDate).toLocaleDateString()}
+                  <Calendar size={16} className="text-danger" /> 
+                  {new Date(task.dueDate).toLocaleDateString()}
                 </span>
               )}
             </div>
@@ -82,17 +121,6 @@ const TaskDetails = () => {
           <h3 className="flex items-center gap-2 mb-4 text-lg font-semibold">
             <Paperclip size={20} /> Attachments (Simulated)
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="glass-panel p-4 flex items-center gap-4 cursor-pointer hover:bg-white/5 transition-colors duration-200">
-              <div className="bg-primary/20 p-3 rounded-lg">
-                <Paperclip size={24} className="text-primary" />
-              </div>
-              <div>
-                <div className="font-semibold">Project_Requirements.pdf</div>
-                <div className="text-slate-400 text-sm">2.4 MB</div>
-              </div>
-            </div>
-          </div>
         </div>
 
         <hr className="border-t border-white/10 my-8" />
@@ -119,11 +147,6 @@ const TaskDetails = () => {
                 </div>
               </div>
             ))}
-            {(!task.comments || task.comments.length === 0) && (
-              <div className="text-slate-400 text-center p-4 bg-white/5 rounded-xl border border-dashed border-white/10">
-                No comments yet. Start the discussion!
-              </div>
-            )}
           </div>
 
           <form onSubmit={handleAddComment} className="flex gap-4 items-start">

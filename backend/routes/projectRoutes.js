@@ -3,7 +3,8 @@ const router = express.Router();
 const Project = require('../models/Project');
 const Task = require('../models/Task');
 
-// Get project dashboard details
+
+// ✅ Get project dashboard details
 router.get('/:projectId/dashboard', async (req, res) => {
     try {
         const project = await Project.findById(req.params.projectId);
@@ -12,18 +13,23 @@ router.get('/:projectId/dashboard', async (req, res) => {
         const tasks = await Task.find({ projectId: req.params.projectId });
 
         const totalTasks = tasks.length;
-        const doneTasks = tasks.filter(t => t.status === 'Done').length;
-        const inProgressTasks = tasks.filter(t => t.status === 'In Progress').length;
-        const todoTasks = tasks.filter(t => t.status === 'To Do').length;
 
-        const progress = totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100);
+        // ✅ FIXED statuses
+        const doneTasks = tasks.filter(t => t.status === 'done').length;
+        const inProgressTasks = tasks.filter(t => t.status === 'inprogress').length;
+        const todoTasks = tasks.filter(t => t.status === 'todo').length;
 
+        const progress = totalTasks === 0 
+            ? 0 
+            : Math.round((doneTasks / totalTasks) * 100);
+
+        // ✅ Upcoming deadlines
         const now = new Date();
         const nextWeek = new Date();
         nextWeek.setDate(now.getDate() + 7);
 
         const upcomingDeadlines = tasks.filter(t => {
-            if (!t.dueDate || t.status === 'Done') return false;
+            if (!t.dueDate || t.status === 'done') return false;
             const dueDate = new Date(t.dueDate);
             return dueDate > now && dueDate <= nextWeek;
         });
@@ -39,10 +45,32 @@ router.get('/:projectId/dashboard', async (req, res) => {
             },
             upcomingDeadlines
         });
+
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 });
+
+// ✅ Add member to project
+router.post('/:projectId/members', async (req, res) => {
+    try {
+        const { name, role } = req.body;
+        if (!name || !role) {
+            return res.status(400).json({ message: 'Name and role are required' });
+        }
+
+        const project = await Project.findById(req.params.projectId);
+        if (!project) return res.status(404).json({ message: 'Project not found' });
+
+        project.members.push({ name, role });
+        await project.save();
+
+        res.status(201).json(project.members);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 
 // 🔥 SEED PROJECT (GET + POST both supported)
 const seedProject = async (req, res) => {
@@ -62,13 +90,14 @@ const seedProject = async (req, res) => {
 
             const savedProject = await project.save();
 
+            // ✅ FIXED statuses here too
             await Task.insertMany([
                 {
                     title: "Design UI Mockups",
                     description: "Create Figma designs",
                     assignedTo: "Charlie",
                     priority: "High",
-                    status: "Done",
+                    status: "done",
                     dueDate: new Date(Date.now() - 86400000),
                     projectId: savedProject._id
                 },
@@ -77,7 +106,7 @@ const seedProject = async (req, res) => {
                     description: "Initialize express and mongodb",
                     assignedTo: "Alice",
                     priority: "High",
-                    status: "In Progress",
+                    status: "inprogress",
                     dueDate: new Date(Date.now() + 86400000),
                     projectId: savedProject._id
                 },
@@ -86,7 +115,7 @@ const seedProject = async (req, res) => {
                     description: "Use dnd library",
                     assignedTo: "Bob",
                     priority: "Medium",
-                    status: "To Do",
+                    status: "todo",
                     dueDate: new Date(Date.now() + 86400000 * 3),
                     projectId: savedProject._id
                 }
@@ -102,9 +131,11 @@ const seedProject = async (req, res) => {
     }
 };
 
+
 // Support BOTH GET and POST
 router.get('/seed', seedProject);
 router.post('/seed', seedProject);
+
 
 // Fallback route
 router.get('/seed/fallback', async (req, res) => {
@@ -117,5 +148,6 @@ router.get('/seed/fallback', async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 });
+
 
 module.exports = router;
