@@ -4,13 +4,14 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        background: '#0f172a',
+        background: 'var(--color-bg)',
         panel: {
-          DEFAULT: 'rgba(30, 41, 59, 0.7)',
-          border: 'rgba(255, 255, 255, 0.1)',
+          DEFAULT: 'var(--color-panel)',
+          border: 'var(--color-panel-border)',
         },
         primary: {
           DEFAULT: '#3b82f6',
@@ -27,9 +28,6 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
-      backgroundImage: {
-        'radial-gradient-custom': 'radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%), radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.15), transparent 25%)',
-      }
     },
   },
   plugins: [],

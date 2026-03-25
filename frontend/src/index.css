@@ -5,11 +5,65 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --color-bg: #f8fafc;
+    --color-panel: rgba(255, 255, 255, 0.95);
+    --color-panel-border: rgba(59, 130, 246, 0.2);
+  }
+
+  html.dark {
+    --color-bg: #0f172a;
+    --color-panel: rgba(30, 41, 59, 0.7);
+    --color-panel-border: rgba(255, 255, 255, 0.1);
+  }
+
   body {
-    @apply font-sans bg-background text-slate-50 min-h-screen bg-fixed bg-radial-gradient-custom;
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: var(--color-bg);
+    min-height: 100vh;
+    background-attachment: fixed;
     margin: 0;
     padding: 0;
   }
+}
+
+/* Cleaned up syntax errors */
+/* Theme specific overrides via CSS rather than touching the exact Tailwind defaults */
+html:not(.dark) body {
+  color: #0f172a; /* Dark text for light mode */
+  background-image: radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.05), transparent 25%), radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.05), transparent 25%);
+}
+
+html.dark body {
+  color: #f8fafc; /* Light text for dark mode */
+  background-image: radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%), radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.15), transparent 25%);
+}
+
+/* Light Mode Overrides using attribute selectors to prevent PostCSS backslash crashing */
+html:not(.dark) [class*="text-slate-50"] { color: #0f172a !important; }
+html:not(.dark) [class*="text-slate-100"] { color: #1e293b !important; }
+html:not(.dark) [class*="text-slate-200"] { color: #334155 !important; }
+html:not(.dark) [class*="text-slate-400"] { color: #475569 !important; }
+
+/* Let primary buttons and specific elements keep white */
+html:not(.dark) .btn-primary, 
+html:not(.dark) .btn-primary [class*="text-"] { color: #ffffff !important; }
+
+html:not(.dark) [class*="bg-slate-900/"] {
+  background-color: rgba(241, 245, 249, 0.8) !important;
+}
+
+html:not(.dark) [class*="bg-slate-800"] {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) [class*="border-white/"] {
+  border-color: rgba(59, 130, 246, 0.2) !important;
+}
+
+html:not(.dark) [class*="bg-white/"] {
+  background-color: rgba(59, 130, 246, 0.05) !important;
 }
 
 /* Scrollbar */

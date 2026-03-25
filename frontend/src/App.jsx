@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Trello, CheckSquare } from 'lucide-react';
+import { LayoutDashboard, Trello, CheckSquare, PlusCircle, Sun, Moon } from 'lucide-react';
 import axios from 'axios';
 
 import ProjectDashboard from './pages/ProjectDashboard';
 import TaskBoard from './pages/TaskBoard';
 import TaskDetails from './pages/TaskDetails';
+import AddProject from './pages/AddProject';
 
 // Backend base URL
 const API_BASE = "http://localhost:5000";
@@ -16,7 +17,8 @@ function Sidebar() {
   const location = useLocation();
   const menuItems = [
     { path: '/', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
-    { path: '/tasks', icon: <Trello size={20} />, label: 'Task Board' }
+    { path: '/tasks', icon: <Trello size={20} />, label: 'Task Board' },
+    { path: '/new-project', icon: <PlusCircle size={20} />, label: 'New Project' }
   ];
 
   return (
@@ -49,54 +51,44 @@ function Sidebar() {
 
 function App() {
   const [projectId, setProjectId] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [isDark, setIsDark] = useState(true);
 
+  // Apply dark class to document gracefully on change
   useEffect(() => {
-    const seedDB = async () => {
-      try {
-        console.log("Trying to seed project...");
-
-        const res = await axios.post(`${API_BASE}/api/projects/seed`);
-        console.log("Seed success:", res.data);
-
-        setProjectId(res.data._id);
-
-      } catch (error) {
-        console.error("Seed error:", error.response || error.message);
-
-        try {
-          console.log("Trying fallback...");
-          const fallback = await axios.get(`${API_BASE}/api/projects/seed/fallback`);
-          console.log("Fallback success:", fallback.data);
-
-          setProjectId(fallback.data._id);
-
-        } catch (e) {
-          console.error("Fallback error:", e.response || e.message);
-
-          setError("❌ Cannot connect to backend. Check if server is running on port 5000.");
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    seedDB();
-  }, []);
-
-  if (loading) return <div className="flex justify-center items-center h-screen text-white">Loading...</div>;
-  if (error) return <div className="flex justify-center items-center h-screen text-red-500 font-bold">{error}</div>;
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDark]);
 
   return (
     <Router>
       <div className="flex min-h-screen">
         <Sidebar />
         <main className="flex-1 py-8 px-12 flex flex-col h-screen overflow-y-auto">
+          
+          <div className="flex justify-end mb-4">
+            <button 
+              onClick={() => setIsDark(!isDark)}
+              className="btn btn-secondary !py-2 !px-4 !rounded-full flex gap-2 items-center text-sm shadow-md"
+            >
+              {isDark ? <Sun size={16} /> : <Moon size={16} />}
+              {isDark ? 'Light Mode' : 'Dark Mode'}
+            </button>
+          </div>
+
           <Routes>
-            <Route path="/" element={<ProjectDashboard projectId={projectId} />} />
-            <Route path="/tasks" element={<TaskBoard projectId={projectId} />} />
-            <Route path="/tasks/:taskId" element={<TaskDetails projectId={projectId} />} />
+            <Route path="/" element={
+              projectId ? <ProjectDashboard projectId={projectId} /> : <AddProject setProjectId={setProjectId} />
+            } />
+            <Route path="/tasks" element={
+              projectId ? <TaskBoard projectId={projectId} /> : <AddProject setProjectId={setProjectId} />
+            } />
+            <Route path="/tasks/:taskId" element={
+              projectId ? <TaskDetails projectId={projectId} /> : <AddProject setProjectId={setProjectId} />
+            } />
+            <Route path="/new-project" element={<AddProject setProjectId={setProjectId} />} />
           </Routes>
         </main>
       </div>

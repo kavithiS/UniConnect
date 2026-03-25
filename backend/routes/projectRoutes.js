@@ -71,6 +71,25 @@ router.post('/:projectId/members', async (req, res) => {
     }
 });
 
+// ✅ Create a new project
+router.post('/', async (req, res) => {
+    try {
+        const { title, description, groupId, members } = req.body;
+        
+        const project = new Project({
+            title,
+            groupId: groupId || `G${Math.floor(Math.random() * 1000)}`,
+            members: members || []
+            // Model doesn't have description initially, but we can add it later or ignore
+        });
+
+        const savedProject = await project.save();
+        res.status(201).json(savedProject);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 
 // 🔥 SEED PROJECT (GET + POST both supported)
 const seedProject = async (req, res) => {
