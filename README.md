@@ -1,10 +1,6 @@
-# UniGroup Finder - Student Profile & Group Chat System
+# Student Profile & Group Chat System
 
-A comprehensive full-stack platform for university students to manage profiles and communicate in real-time group chats with advanced WhatsApp-style features.
-
-## 🎯 **COMPLETE FEATURE-RICH CHAT SYSTEM**
-
-**A professional-grade group chat application with 30+ features!**
+A comprehensive full-stack platform for university students to manage profiles and communicate in real-time group chats
 
 ### ✅ What's Implemented
 
@@ -345,21 +341,6 @@ node seedDummyData.js
 | GET    | `/group/:groupId/pinned`      | Get pinned messages       |
 | GET    | `/group/:groupId`             | Get group details         |
 | GET    | `/group/:groupId/members`     | Get group members         |
-
-### Socket.IO Events
-
-**Client → Server:**
-
-- `join_group` - Join chat room
-- `send_message` - Send new message (with mentions, replyTo)
-- `typing` - User is typing
-- `stop_typing` - User stopped typing
-
-**Server → Client:**
-
-- `receive_message` - New message broadcast
-- `user_typing` - Someone is typing
-- `user_stop_typing` - Typing stopped
 
 ## 📝 Development Notes
 
