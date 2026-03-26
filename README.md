@@ -27,17 +27,6 @@ A comprehensive full-stack platform for university students to manage profiles a
 - Voice Messaging ✅
 - Custom scrollbars & dark mode ✅
 
-## ✨ Features Overview
-
-### 🎓 Student Profile Management
-
-- **CRUD Operations**: Create, Read, Update student profiles
-- **Auto-Initialization**: Automatic profile creation for new users
-- **Comprehensive Fields**: Personal info, academic details, skills, bio, interests
-- **Profile Picture**: Base64 image upload and display
-- **Form Validation**: Real-time validation with error messages
-- **Responsive Design**: Mobile-first approach with Tailwind CSS
-
 ## 🛠️ Tech Stack
 
 ### Frontend
