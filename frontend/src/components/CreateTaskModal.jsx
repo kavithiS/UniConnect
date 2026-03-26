@@ -34,50 +34,123 @@ const CreateTaskModal = ({ projectId, onClose, onTaskCreated }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 animate-fadeIn" onClick={onClose}>
-      <div className="w-full max-w-lg p-8 animate-slideUp glass-panel" onClick={e => e.stopPropagation()}>
+    <div 
+      className="fixed inset-0 bg-black/60 flex justify-center items-center z-[9999]"
+      onClick={onClose}
+    >
+      <div 
+        className="w-full max-w-lg p-8 bg-white text-black rounded-xl shadow-2xl z-[10000]"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">Create New Task</h2>
-          <button onClick={onClose} className="bg-transparent border-none text-slate-400 hover:text-white cursor-pointer transition-colors">
+          <h2 style={{ color: 'black', fontSize: '24px', fontWeight: 'bold' }}>
+            Create New Task
+          </h2>
+
+          <button 
+            onClick={onClose} 
+            className="text-gray-600 hover:text-black"
+          >
             <X size={24} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
+          {/* Title */}
           <div className="mb-5">
-            <label className="block mb-2 font-medium text-slate-400">Task Title</label>
-            <input required type="text" name="title" className="form-control" value={formData.title} onChange={handleChange} placeholder="e.g. Design Login Page" />
+            <label className="block mb-2 font-medium text-gray-700">
+              Task Title
+            </label>
+            <input 
+              required 
+              type="text" 
+              name="title" 
+              className="w-full p-3 border border-gray-300 rounded-md bg-white text-black"
+              value={formData.title} 
+              onChange={handleChange} 
+              placeholder="e.g. Design Login Page" 
+            />
           </div>
 
+          {/* Description */}
           <div className="mb-5">
-            <label className="block mb-2 font-medium text-slate-400">Description</label>
-            <textarea required name="description" className="form-control" rows={3} value={formData.description} onChange={handleChange} placeholder="Details about this task..." />
+            <label className="block mb-2 font-medium text-gray-700">
+              Description
+            </label>
+            <textarea 
+              required 
+              name="description" 
+              className="w-full p-3 border border-gray-300 rounded-md bg-white text-black"
+              rows={3} 
+              value={formData.description} 
+              onChange={handleChange} 
+              placeholder="Details about this task..." 
+            />
           </div>
 
+          {/* Grid */}
           <div className="grid grid-cols-2 gap-4 mb-5">
             <div>
-              <label className="block mb-2 font-medium text-slate-400">Assign To</label>
-              <input type="text" name="assignedTo" className="form-control" value={formData.assignedTo} onChange={handleChange} placeholder="Member name" />
+              <label className="block mb-2 font-medium text-gray-700">
+                Assign To
+              </label>
+              <input 
+                type="text" 
+                name="assignedTo" 
+                className="w-full p-3 border border-gray-300 rounded-md bg-white text-black"
+                value={formData.assignedTo} 
+                onChange={handleChange} 
+                placeholder="Member name" 
+              />
             </div>
 
             <div>
-              <label className="block mb-2 font-medium text-slate-400">Priority</label>
-              <select name="priority" className="form-control" value={formData.priority} onChange={handleChange}>
-                <option value="Low" className="bg-slate-800">Low</option>
-                <option value="Medium" className="bg-slate-800">Medium</option>
-                <option value="High" className="bg-slate-800">High</option>
+              <label className="block mb-2 font-medium text-gray-700">
+                Priority
+              </label>
+              <select 
+                name="priority" 
+                className="w-full p-3 border border-gray-300 rounded-md bg-white text-black"
+                value={formData.priority} 
+                onChange={handleChange}
+              >
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
               </select>
             </div>
           </div>
 
+          {/* Date */}
           <div className="mb-5">
-            <label className="block mb-2 font-medium text-slate-400">Due Date</label>
-            <input type="date" name="dueDate" className="form-control" value={formData.dueDate} onChange={handleChange} />
+            <label className="block mb-2 font-medium text-gray-700">
+              Due Date
+            </label>
+            <input 
+              type="date" 
+              name="dueDate" 
+              className="w-full p-3 border border-gray-300 rounded-md bg-white text-black"
+              value={formData.dueDate} 
+              onChange={handleChange} 
+            />
           </div>
 
+          {/* Buttons */}
           <div className="flex justify-end gap-4 mt-8">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={loading}>
+            <button 
+              type="button" 
+              className="px-4 py-2 bg-gray-200 text-black rounded-md hover:bg-gray-300"
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+
+            <button 
+              type="submit" 
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              disabled={loading}
+            >
               {loading ? 'Creating...' : 'Create Task'}
             </button>
           </div>

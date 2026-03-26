@@ -1,20 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Trello, CheckSquare, PlusCircle, Sun, Moon } from 'lucide-react';
-import axios from 'axios';
 
 import ProjectDashboard from './pages/ProjectDashboard';
 import TaskBoard from './pages/TaskBoard';
 import TaskDetails from './pages/TaskDetails';
 import AddProject from './pages/AddProject';
 
-// Backend base URL
-const API_BASE = "http://localhost:5000";
-
-const DEMO_PROJECT_ID = 'seed';
-
 function Sidebar() {
   const location = useLocation();
+
   const menuItems = [
     { path: '/', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
     { path: '/tasks', icon: <Trello size={20} />, label: 'Task Board' },
@@ -22,28 +17,46 @@ function Sidebar() {
   ];
 
   return (
-    <div className="w-[250px] border-r border-panel-border p-8 flex flex-col gap-6 bg-slate-900/80 backdrop-blur-md">
-      <div className="text-xl font-bold bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent mb-4 flex items-center">
-        <CheckSquare size={24} className="inline mr-2 align-middle text-primary" />
+    <div className="
+      w-[250px] p-8 flex flex-col gap-6 border-r
+      bg-white text-gray-900 border-gray-200
+      dark:bg-slate-900 dark:text-white dark:border-white/10
+    ">
+      {/* Logo */}
+      <div className="text-xl font-bold flex items-center mb-4">
+        <CheckSquare size={24} className="mr-2 text-blue-600 dark:text-blue-400" />
         Uni Connect
       </div>
-      <div className="px-2 text-slate-400 text-xs uppercase tracking-widest mb-2">
+
+      {/* Section title */}
+      <div className="px-2 text-gray-500 dark:text-slate-400 text-xs uppercase tracking-widest mb-2">
         Project Management
       </div>
+
+      {/* Menu */}
       {menuItems.map(item => {
         const isActive = location.pathname === item.path;
+
         return (
           <Link
             key={item.path}
             to={item.path}
-            className={`flex flex-row items-center gap-3 px-4 py-3 rounded-md font-medium no-underline transition-all duration-300 hover:bg-white/5 hover:text-slate-50 hover:translate-x-1 ${
-              isActive ? 'bg-primary/10 text-primary border-l-4 border-primary' : 'text-slate-400'
-            }`}
+            className={`
+              flex items-center gap-3 px-4 py-3 rounded-md font-medium transition-all duration-200
+
+              ${isActive 
+                ? 'bg-blue-100 text-blue-600 border-l-4 border-blue-600 dark:bg-blue-500/10 dark:text-blue-400'
+                : 'text-gray-600 dark:text-slate-400'
+              }
+
+              hover:bg-gray-100 hover:text-gray-900
+              dark:hover:bg-white/10 dark:hover:text-white
+            `}
           >
             {item.icon}
             {item.label}
           </Link>
-        )
+        );
       })}
     </div>
   );
@@ -53,7 +66,6 @@ function App() {
   const [projectId, setProjectId] = useState(null);
   const [isDark, setIsDark] = useState(true);
 
-  // Apply dark class to document gracefully on change
   useEffect(() => {
     if (isDark) {
       document.documentElement.classList.add('dark');
@@ -65,9 +77,14 @@ function App() {
   return (
     <Router>
       <div className="flex min-h-screen">
+        
+        {/* Sidebar */}
         <Sidebar />
-        <main className="flex-1 py-8 px-12 flex flex-col h-screen overflow-y-auto">
+
+        {/* Main Content */}
+        <main className="flex-1 py-8 px-12 flex flex-col h-screen overflow-y-auto bg-white dark:bg-slate-900">
           
+          {/* Theme Toggle */}
           <div className="flex justify-end mb-4">
             <button 
               onClick={() => setIsDark(!isDark)}
@@ -78,6 +95,7 @@ function App() {
             </button>
           </div>
 
+          {/* Routes */}
           <Routes>
             <Route path="/" element={
               projectId ? <ProjectDashboard projectId={projectId} /> : <AddProject setProjectId={setProjectId} />
@@ -90,6 +108,7 @@ function App() {
             } />
             <Route path="/new-project" element={<AddProject setProjectId={setProjectId} />} />
           </Routes>
+
         </main>
       </div>
     </Router>
