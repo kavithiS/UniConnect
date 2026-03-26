@@ -12,12 +12,26 @@ const CreateTaskModal = ({ projectId, onClose, onTaskCreated }) => {
   });
   const [loading, setLoading] = useState(false);
 
+  const today = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (formData.dueDate && formData.dueDate < today()) {
+      alert('Due date cannot be in the past. Please select today or a future date.');
+      return;
+    }
+
     setLoading(true);
     try {
       await axios.post('http://localhost:5000/api/tasks', {
@@ -133,6 +147,7 @@ const CreateTaskModal = ({ projectId, onClose, onTaskCreated }) => {
               className="w-full p-3 border border-gray-300 rounded-md bg-white text-black"
               value={formData.dueDate} 
               onChange={handleChange} 
+              min={today()}
             />
           </div>
 

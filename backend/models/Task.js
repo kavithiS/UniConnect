@@ -32,6 +32,17 @@ const taskSchema = new mongoose.Schema({
 
     comments: [commentSchema],
 
+    attachments: [
+        {
+            id: { type: String, required: true },
+            name: { type: String, required: true },
+            size: { type: Number, required: true },
+            type: { type: String },
+            url: { type: String, required: true },
+            uploadedAt: { type: Date, default: Date.now }
+        }
+    ],
+
     createdAt: { type: Date, default: Date.now }
 });
 
