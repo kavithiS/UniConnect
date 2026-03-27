@@ -19,7 +19,7 @@ function Sidebar() {
   return (
     <div className="
       w-[250px] p-8 flex flex-col gap-6 border-r
-      bg-white text-gray-900 border-gray-200
+      bg-slate-900 text-white border-white/10
       dark:bg-slate-900 dark:text-white dark:border-white/10
     ">
       {/* Logo */}
@@ -29,7 +29,7 @@ function Sidebar() {
       </div>
 
       {/* Section title */}
-      <div className="px-2 text-gray-500 dark:text-slate-400 text-xs uppercase tracking-widest mb-2">
+      <div className="px-2 text-slate-400 dark:text-slate-400 text-xs uppercase tracking-widest mb-2">
         Project Management
       </div>
 
@@ -46,10 +46,10 @@ function Sidebar() {
 
               ${isActive 
                 ? 'bg-blue-100 text-blue-600 border-l-4 border-blue-600 dark:bg-blue-500/10 dark:text-blue-400'
-                : 'text-gray-600 dark:text-slate-400'
+                : 'text-slate-400 dark:text-slate-400'
               }
 
-              hover:bg-gray-100 hover:text-gray-900
+              hover:bg-white/10 hover:text-white
               dark:hover:bg-white/10 dark:hover:text-white
             `}
           >
