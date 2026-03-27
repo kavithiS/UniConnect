@@ -30,10 +30,16 @@ const AddProject = ({ setProjectId }) => {
     e.preventDefault();
     if (!title.trim()) return;
 
+    const filteredMembers = members.filter(m => m.name.trim() && m.role.trim());
+
+    // Validate that at least 2 members are provided
+    if (filteredMembers.length < 2) {
+      alert('Please add at least 2 team members to create a project.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const filteredMembers = members.filter(m => m.name.trim() && m.role.trim());
-
       const res = await axios.post('http://localhost:5000/api/projects', {
         title,
         description,
@@ -113,6 +119,9 @@ const AddProject = ({ setProjectId }) => {
               text-gray-900 dark:text-white">
               <Users className="text-blue-600 dark:text-blue-400" />
               Team Members
+              <span className="text-sm font-normal text-gray-500 dark:text-slate-400">
+                (At least 2 required)
+              </span>
             </h2>
 
             <button
@@ -176,7 +185,7 @@ const AddProject = ({ setProjectId }) => {
           <button
             type="submit"
             className="btn btn-primary text-lg py-3 px-8 w-full sm:w-auto"
-            disabled={loading}
+            disabled={loading || members.filter(m => m.name.trim() && m.role.trim()).length < 2}
           >
             {loading ? 'Creating...' : 'Create Project'} <ArrowRight size={20} />
           </button>

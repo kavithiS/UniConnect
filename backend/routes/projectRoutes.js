@@ -75,7 +75,14 @@ router.post('/:projectId/members', async (req, res) => {
 router.post('/', async (req, res) => {
     try {
         const { title, description, groupId, members } = req.body;
-        
+
+        // Validate that at least 2 members are provided
+        if (!members || members.length < 2) {
+            return res.status(400).json({
+                message: 'At least 2 team members are required to create a project'
+            });
+        }
+
         const project = new Project({
             title,
             groupId: groupId || `G${Math.floor(Math.random() * 1000)}`,

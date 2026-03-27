@@ -10,6 +10,13 @@ const TaskDetails = () => {
   const [commentText, setCommentText] = useState('');
   const [loading, setLoading] = useState(true);
 
+  const API_BASE_URL = 'http://localhost:5000';
+
+  const resolveAttachmentUrl = (url) => {
+    if (!url) return '';
+    return url.startsWith('http://') || url.startsWith('https://') ? url : `${API_BASE_URL}${url}`;
+  };
+
   const fetchTaskDetails = async () => {
     try {
       const res = await axios.get(`http://localhost:5000/api/tasks/${taskId}`);
@@ -49,6 +56,7 @@ const TaskDetails = () => {
 
       setTask(res.data);
       setAttachments(res.data.attachments || []);
+      await fetchTaskDetails();
     } catch (error) {
       console.error('Attachment upload failed:', error);
       alert('Failed to upload attachments. Please try again.');
@@ -62,6 +70,7 @@ const TaskDetails = () => {
       const res = await axios.delete(`http://localhost:5000/api/tasks/${taskId}/attachments/${id}`);
       setTask(res.data);
       setAttachments(res.data.attachments || []);
+      await fetchTaskDetails();
     } catch (error) {
       console.error('Attachment deletion failed:', error);
       alert('Failed to remove attachment. Please try again.');
@@ -229,14 +238,23 @@ const TaskDetails = () => {
                     <div className="text-xs text-gray-500 dark:text-slate-400">
                       {(file.size / 1024).toFixed(2)} KB • {new Date(file.uploadedAt).toLocaleString()}
                     </div>
-                    <a
-                      href={file.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 underline text-xs"
-                    >
-                      View
-                    </a>
+                    {file.type?.startsWith('image/') && (
+                      <img
+                        src={resolveAttachmentUrl(file.url)}
+                        alt={file.name}
+                        className="mt-2 max-h-40 rounded border border-gray-300" 
+                      />
+                    )}
+                    <div className="flex items-center gap-2 mt-2">
+                      <a
+                        href={resolveAttachmentUrl(file.url)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 underline text-xs"
+                      >
+                        View
+                      </a>
+                    </div>
                   </div>
                   <button
                     onClick={() => handleRemoveAttachment(file.id)}
