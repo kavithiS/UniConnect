@@ -8,27 +8,133 @@ const AddProject = ({ setProjectId }) => {
   const [description, setDescription] = useState('');
   const [members, setMembers] = useState([{ name: '', role: '' }]);
   const [loading, setLoading] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({});
   const navigate = useNavigate();
+
+  // Name validation functions
+  const validateName = (name) => {
+    if (!name.trim()) return 'Name is required';
+    
+    // Check for special characters (only allow letters, spaces, and hyphens)
+    const nameRegex = /^[a-zA-Z\s\-]+$/;
+    if (!nameRegex.test(name.trim())) {
+      return 'Name can only contain letters, spaces, and hyphens';
+    }
+    
+    // Check for both first and last name
+    const nameParts = name.trim().split(/\s+/);
+    if (nameParts.length < 2) {
+      return 'Please enter both first name and surname';
+    }
+    
+    // Check that each part is at least 2 characters
+    for (const part of nameParts) {
+      if (part.length < 2) {
+        return 'Each name part must be at least 2 characters long';
+      }
+    }
+    
+    return null; // Valid
+  };
+
+  const validateAllMembers = () => {
+    const errors = {};
+    let hasErrors = false;
+    
+    members.forEach((member, index) => {
+      if (member.name.trim() || member.role.trim()) { // Only validate if either field has content
+        const nameError = validateName(member.name);
+        if (nameError) {
+          errors[`member_${index}_name`] = nameError;
+          hasErrors = true;
+        }
+        
+        if (!member.role.trim()) {
+          errors[`member_${index}_role`] = 'Role is required';
+          hasErrors = true;
+        }
+      }
+    });
+    
+    setValidationErrors(errors);
+    return !hasErrors;
+  };
 
   const handleAddMember = () => {
     setMembers([...members, { name: '', role: '' }]);
+    // Clear validation errors when adding a new member
+    setValidationErrors(prev => {
+      const newErrors = { ...prev };
+      // Remove any errors for the new member index
+      delete newErrors[`member_${members.length}_name`];
+      delete newErrors[`member_${members.length}_role`];
+      return newErrors;
+    });
   };
 
   const handleUpdateMember = (index, field, value) => {
     const newMembers = [...members];
     newMembers[index][field] = value;
     setMembers(newMembers);
+    
+    // Real-time validation for name field
+    if (field === 'name') {
+      const errorKey = `member_${index}_name`;
+      const nameError = validateName(value);
+      
+      setValidationErrors(prev => ({
+        ...prev,
+        [errorKey]: nameError
+      }));
+    } else if (field === 'role') {
+      const errorKey = `member_${index}_role`;
+      setValidationErrors(prev => ({
+        ...prev,
+        [errorKey]: value.trim() ? null : 'Role is required'
+      }));
+    }
   };
 
   const handleRemoveMember = (index) => {
     if (members.length === 1) return;
     const newMembers = members.filter((_, i) => i !== index);
     setMembers(newMembers);
+    
+    // Clean up validation errors for removed member and reindex remaining errors
+    setValidationErrors(prev => {
+      const newErrors = {};
+      
+      // Remove errors for the deleted member and reindex subsequent members
+      Object.keys(prev).forEach(key => {
+        const match = key.match(/^member_(\d+)_(name|role)$/);
+        if (match) {
+          const memberIndex = parseInt(match[1]);
+          const field = match[2];
+          
+          if (memberIndex < index) {
+            // Keep errors for members before the removed one
+            newErrors[key] = prev[key];
+          } else if (memberIndex > index) {
+            // Reindex errors for members after the removed one
+            newErrors[`member_${memberIndex - 1}_${field}`] = prev[key];
+          }
+          // Skip errors for the removed member
+        }
+      });
+      
+      return newErrors;
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title.trim()) return;
+
+    // Validate all members
+    if (!validateAllMembers()) {
+      alert('Please fix the validation errors before submitting.');
+      return;
+    }
 
     const filteredMembers = members.filter(m => m.name.trim() && m.role.trim());
 
@@ -143,28 +249,42 @@ const AddProject = ({ setProjectId }) => {
               >
                 <div className="flex-1">
                   <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-slate-300">
-                    Name
+                    Full Name *
                   </label>
                   <input
                     type="text"
                     value={member.name}
                     onChange={(e) => handleUpdateMember(i, 'name', e.target.value)}
-                    placeholder="e.g. Alice"
-                    className="form-control text-sm py-2.5"
+                    placeholder="e.g. John Smith"
+                    className={`form-control text-sm py-2.5 ${
+                      validationErrors[`member_${i}_name`] ? 'border-red-500 focus:border-red-500' : ''
+                    }`}
                   />
+                  {validationErrors[`member_${i}_name`] && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {validationErrors[`member_${i}_name`]}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex-1">
                   <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-slate-300">
-                    Role
+                    Role *
                   </label>
                   <input
                     type="text"
                     value={member.role}
                     onChange={(e) => handleUpdateMember(i, 'role', e.target.value)}
                     placeholder="e.g. Developer"
-                    className="form-control text-sm py-2.5"
+                    className={`form-control text-sm py-2.5 ${
+                      validationErrors[`member_${i}_role`] ? 'border-red-500 focus:border-red-500' : ''
+                    }`}
                   />
+                  {validationErrors[`member_${i}_role`] && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {validationErrors[`member_${i}_role`]}
+                    </p>
+                  )}
                 </div>
 
                 <button

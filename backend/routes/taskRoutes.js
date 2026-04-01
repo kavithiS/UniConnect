@@ -71,11 +71,11 @@ router.get('/:id', async (req, res) => {
 // ✅ Update a task (SAFE update)
 router.put('/:id', async (req, res) => {
     try {
-        const { title, description, assignedTo, priority, status, dueDate } = req.body;
+        const { title, description, assignedTo, priority, status, dueDate, subtasks } = req.body;
 
         const updatedTask = await Task.findByIdAndUpdate(
             req.params.id,
-            { title, description, assignedTo, priority, status, dueDate },
+            { title, description, assignedTo, priority, status, dueDate, subtasks },
             { new: true, runValidators: true }
         );
 
@@ -213,6 +213,76 @@ router.delete('/:id/attachments/:attachmentId', async (req, res) => {
         res.json(task);
     } catch (error) {
         console.error(error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// ✅ Add a subtask to a task
+router.post('/:id/subtasks', async (req, res) => {
+    try {
+        const task = await Task.findById(req.params.id);
+
+        if (!task) {
+            return res.status(404).json({ message: "Task not found" });
+        }
+
+        task.subtasks.push({
+            title: req.body.title,
+            status: req.body.status || 'todo'
+        });
+
+        const updatedTask = await task.save();
+
+        res.json(updatedTask);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// ✅ Update a subtask status
+router.patch('/:id/subtasks/:subtaskIndex', async (req, res) => {
+    try {
+        const task = await Task.findById(req.params.id);
+
+        if (!task) {
+            return res.status(404).json({ message: "Task not found" });
+        }
+
+        const subtaskIndex = parseInt(req.params.subtaskIndex);
+        if (subtaskIndex < 0 || subtaskIndex >= task.subtasks.length) {
+            return res.status(404).json({ message: "Subtask not found" });
+        }
+
+        task.subtasks[subtaskIndex].status = req.body.status;
+
+        const updatedTask = await task.save();
+
+        res.json(updatedTask);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// ✅ Delete a subtask
+router.delete('/:id/subtasks/:subtaskIndex', async (req, res) => {
+    try {
+        const task = await Task.findById(req.params.id);
+
+        if (!task) {
+            return res.status(404).json({ message: "Task not found" });
+        }
+
+        const subtaskIndex = parseInt(req.params.subtaskIndex);
+        if (subtaskIndex < 0 || subtaskIndex >= task.subtasks.length) {
+            return res.status(404).json({ message: "Subtask not found" });
+        }
+
+        task.subtasks.splice(subtaskIndex, 1);
+
+        const updatedTask = await task.save();
+
+        res.json(updatedTask);
+    } catch (error) {
         res.status(500).json({ message: error.message });
     }
 });

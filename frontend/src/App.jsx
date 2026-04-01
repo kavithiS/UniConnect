@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Trello, CheckSquare, PlusCircle, Sun, Moon } from 'lucide-react';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, Trello, CheckSquare, Sun, Moon } from 'lucide-react';
 
 import ProjectDashboard from './pages/ProjectDashboard';
 import TaskBoard from './pages/TaskBoard';
@@ -9,12 +9,6 @@ import AddProject from './pages/AddProject';
 
 function Sidebar() {
   const location = useLocation();
-
-  const menuItems = [
-    { path: '/', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
-    { path: '/tasks', icon: <Trello size={20} />, label: 'Task Board' },
-    { path: '/new-project', icon: <PlusCircle size={20} />, label: 'New Project' }
-  ];
 
   return (
     <div className="
@@ -28,36 +22,40 @@ function Sidebar() {
         Uni Connect
       </div>
 
-      {/* Section title */}
-      <div className="px-2 text-slate-400 dark:text-slate-400 text-xs uppercase tracking-widest mb-2">
-        Project Management
+      {/* Navigation Menu */}
+      <div className="flex-1">
+        <div className="px-2 text-slate-400 dark:text-slate-400 text-xs uppercase tracking-widest mb-3">
+          Navigation
+        </div>
+
+        <Link
+          to="/"
+          className={`
+            flex items-center gap-3 px-4 py-3 rounded-md font-medium transition-all duration-200 mb-1
+            ${location.pathname === '/'
+              ? 'bg-blue-100 text-blue-600 border-l-4 border-blue-600 dark:bg-blue-500/10 dark:text-blue-400'
+              : 'text-slate-400 dark:text-slate-400 hover:bg-white/10 hover:text-white dark:hover:bg-white/10 dark:hover:text-white'
+            }
+          `}
+        >
+          <LayoutDashboard size={20} />
+          Dashboard
+        </Link>
+
+        <Link
+          to="/tasks"
+          className={`
+            flex items-center gap-3 px-4 py-3 rounded-md font-medium transition-all duration-200
+            ${location.pathname === '/tasks'
+              ? 'bg-blue-100 text-blue-600 border-l-4 border-blue-600 dark:bg-blue-500/10 dark:text-blue-400'
+              : 'text-slate-400 dark:text-slate-400 hover:bg-white/10 hover:text-white dark:hover:bg-white/10 dark:hover:text-white'
+            }
+          `}
+        >
+          <Trello size={20} />
+          Task Board
+        </Link>
       </div>
-
-      {/* Menu */}
-      {menuItems.map(item => {
-        const isActive = location.pathname === item.path;
-
-        return (
-          <Link
-            key={item.path}
-            to={item.path}
-            className={`
-              flex items-center gap-3 px-4 py-3 rounded-md font-medium transition-all duration-200
-
-              ${isActive 
-                ? 'bg-blue-100 text-blue-600 border-l-4 border-blue-600 dark:bg-blue-500/10 dark:text-blue-400'
-                : 'text-slate-400 dark:text-slate-400'
-              }
-
-              hover:bg-white/10 hover:text-white
-              dark:hover:bg-white/10 dark:hover:text-white
-            `}
-          >
-            {item.icon}
-            {item.label}
-          </Link>
-        );
-      })}
     </div>
   );
 }

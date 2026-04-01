@@ -110,6 +110,26 @@ const TaskDetails = () => {
     }
   };
 
+  const updateSubtaskStatus = async (subtaskIndex, newStatus) => {
+    try {
+      await axios.patch(`http://localhost:5000/api/tasks/${taskId}/subtasks/${subtaskIndex}`, {
+        status: newStatus
+      });
+      fetchTaskDetails();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const areAllSubtasksDone = () => {
+    if (!task?.subtasks || task.subtasks.length === 0) return true;
+    return task.subtasks.every(subtask => subtask.status === 'done');
+  };
+
+  const canMarkAsDone = () => {
+    return areAllSubtasksDone();
+  };
+
   if (loading) return <div className="text-gray-600 dark:text-slate-400">Loading Task Details...</div>;
   if (!task) return <div className="text-gray-600 dark:text-slate-400">Task not found</div>;
 
@@ -155,11 +175,15 @@ const TaskDetails = () => {
 
           <button
             onClick={() => updateStatus("done")}
+            disabled={!canMarkAsDone()}
             className={`px-4 py-2 rounded-md text-sm font-medium transition
               ${task.status === "done"
                 ? "bg-blue-600 text-white"
+                : !canMarkAsDone()
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-500"
                 : "bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-slate-700 dark:text-white"}
             `}
+            title={!canMarkAsDone() ? "Complete all subtasks first" : ""}
           >
             Done
           </button>
@@ -203,13 +227,63 @@ const TaskDetails = () => {
           dark:bg-slate-900/40 dark:text-slate-100
         ">
           <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
-            Description
+            User Story / Description
           </h3>
 
           <p className="leading-relaxed whitespace-pre-wrap">
             {task.description || 'No description provided.'}
           </p>
         </div>
+
+        {/* Subtasks */}
+        {task.subtasks && task.subtasks.length > 0 && (
+          <div className="
+            p-6 rounded-xl mb-8
+            bg-gray-100 text-gray-900
+            dark:bg-slate-900/40 dark:text-slate-100
+          ">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Subtasks
+              </h3>
+              <span className="text-sm text-gray-600 dark:text-slate-400">
+                {task.subtasks.filter(st => st.status === 'done').length} / {task.subtasks.length} completed
+              </span>
+            </div>
+
+            <ul className="space-y-3">
+              {task.subtasks.map((subtask, index) => (
+                <li key={index} className="flex items-center gap-3 p-3 bg-white/50 rounded-lg dark:bg-slate-800/50">
+                  <input
+                    type="checkbox"
+                    checked={subtask.status === 'done'}
+                    onChange={() => updateSubtaskStatus(index, subtask.status === 'done' ? 'todo' : 'done')}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                  />
+                  <span className={`flex-1 ${subtask.status === 'done' ? 'line-through text-gray-500' : ''}`}>
+                    {subtask.title}
+                  </span>
+                  <span className={`text-xs px-2 py-1 rounded ${
+                    subtask.status === 'done' ? 'bg-green-100 text-green-800' :
+                    subtask.status === 'inprogress' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {subtask.status === 'todo' ? 'To Do' :
+                     subtask.status === 'inprogress' ? 'In Progress' : 'Done'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            {!areAllSubtasksDone() && (
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg dark:bg-yellow-900/20 dark:border-yellow-800">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  ⚠️ Complete all subtasks before marking this task as done.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Attachments */}
         <div className="mb-8">
