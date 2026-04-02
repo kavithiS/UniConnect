@@ -1,0 +1,279 @@
+{
+  "info": {
+    "_postman_id": "uniconnect-groups-api",
+    "name": "UniConnect - Groups & AI Matching API",
+    "description": "Complete API collection for Group Management, Join Requests, and AI Recommendations",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "🟦 Groups",
+      "item": [
+        {
+          "name": "Create Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Web Development Team\",\n  \"description\": \"Building modern web applications with React and Node.js\",\n  \"requiredSkills\": [\"React\", \"Node.js\", \"MongoDB\"],\n  \"memberLimit\": 5\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/groups",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "5000",
+              "path": ["api", "groups"]
+            }
+          }
+        },
+        {
+          "name": "Get All Groups",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:5000/api/groups",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "5000",
+              "path": ["api", "groups"]
+            }
+          }
+        },
+        {
+          "name": "Get Group by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:5000/api/groups/:groupId",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "5000",
+              "path": ["api", "groups", ":groupId"],
+              "variable": [
+                {
+                  "key": "groupId",
+                  "value": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Group",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Team Name\",\n  \"description\": \"Updated description\",\n  \"requiredSkills\": [\"React\", \"TypeScript\", \"Node.js\"],\n  \"memberLimit\": 8\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/groups/:groupId",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "5000",
+              "path": ["api", "groups", ":groupId"],
+              "variable": [
+                {
+                  "key": "groupId",
+                  "value": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Archive Group",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "http://localhost:5000/api/groups/:groupId",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "5000",
+              "path": ["api", "groups", ":groupId"],
+              "variable": [
+                {
+                  "key": "groupId",
+                  "value": ""
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📨 Join Requests",
+      "item": [
+        {
+          "name": "Send Join Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"\",\n  \"groupId\": \"\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/requests",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "5000",
+              "path": ["api", "requests"]
+            }
+          }
+        },
+        {
+          "name": "Get All Join Requests",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:5000/api/requests",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "5000",
+              "path": ["api", "requests"]
+            }
+          }
+        },
+        {
+          "name": "Accept Join Request",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"accepted\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/requests/:requestId",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "5000",
+              "path": ["api", "requests", ":requestId"],
+              "variable": [
+                {
+                  "key": "requestId",
+                  "value": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reject Join Request",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"rejected\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/requests/:requestId",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "5000",
+              "path": ["api", "requests", ":requestId"],
+              "variable": [
+                {
+                  "key": "requestId",
+                  "value": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cancel Join Request",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "http://localhost:5000/api/requests/:requestId",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "5000",
+              "path": ["api", "requests", ":requestId"],
+              "variable": [
+                {
+                  "key": "requestId",
+                  "value": ""
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🤖 AI Recommendations",
+      "item": [
+        {
+          "name": "Get Recommended Groups for User",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:5000/api/recommend/groups/:userId",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "5000",
+              "path": ["api", "recommend", "groups", ":userId"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Recommended Users for Group",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:5000/api/recommend/users/:groupId",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "5000",
+              "path": ["api", "recommend", "users", ":groupId"],
+              "variable": [
+                {
+                  "key": "groupId",
+                  "value": ""
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -32,29 +32,6 @@ const taskSchema = new mongoose.Schema({
 
     comments: [commentSchema],
 
-    attachments: [
-        {
-            id: { type: String, required: true },
-            name: { type: String, required: true },
-            size: { type: Number, required: true },
-            type: { type: String },
-            url: { type: String, required: true },
-            uploadedAt: { type: Date, default: Date.now }
-        }
-    ],
-
-    subtasks: [
-        {
-            title: { type: String, required: true },
-            status: { 
-                type: String, 
-                enum: ['todo', 'inprogress', 'done'], 
-                default: 'todo' 
-            },
-            createdAt: { type: Date, default: Date.now }
-        }
-    ],
-
     createdAt: { type: Date, default: Date.now }
 });
 

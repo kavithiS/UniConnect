@@ -1,0 +1,230 @@
+{
+  "info": {
+    "name": "UniConnect - Advanced Skill-Based Matching API",
+    "description": "Complete API collection for UniConnect Groups with skill-based matching, request/invitation workflow, and match explanations",
+    "version": "2.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "GROUP ENDPOINTS",
+      "item": [
+        {
+          "name": "Create Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Web Development Team\",\n  \"description\": \"Building modern web applications\",\n  \"requiredSkills\": [\"React\", \"Node.js\", \"MongoDB\"],\n  \"memberLimit\": 5,\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/groups",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": ["5000"],
+              "path": ["api", "groups"]
+            }
+          }
+        },
+        {
+          "name": "Get All Groups",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:5000/api/groups",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": ["5000"],
+              "path": ["api", "groups"]
+            }
+          }
+        },
+        {
+          "name": "Get Group by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:5000/api/groups/{{groupId}}",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": ["5000"],
+              "path": ["api", "groups", "{{groupId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "JOIN REQUEST ENDPOINTS",
+      "item": [
+        {
+          "name": "Send Join Request - WITH SKILL ANALYSIS",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"groupId\": \"{{groupId}}\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/requests",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": ["5000"],
+              "path": ["api", "requests"]
+            },
+            "description": "Creates a join request with automatic skill analysis:\n- Calculates matchScore (0-100%)\n- Identifies matchedSkills and missingSkills\n- Marks requestType as 'student-request'\n- Sets expiresAt to 30 days from now\n- Tracks request status: 'pending'"
+          }
+        },
+        {
+          "name": "Get All Join Requests",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:5000/api/requests",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": ["5000"],
+              "path": ["api", "requests"]
+            }
+          }
+        },
+        {
+          "name": "Get Student's Requests",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:5000/api/requests/student/{{userId}}",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": ["5000"],
+              "path": ["api", "requests", "student", "{{userId}}"]
+            },
+            "description": "Get all join requests sent by a specific student"
+          }
+        },
+        {
+          "name": "Get Group's Requests",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:5000/api/requests/group/{{groupId}}",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": ["5000"],
+              "path": ["api", "requests", "group", "{{groupId}}"]
+            },
+            "description": "Get all join requests for a specific group"
+          }
+        },
+        {
+          "name": "Accept/Reject Join Request",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"accepted\",\n  \"responseMessage\": \"Welcome to the team!\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/requests/{{requestId}}",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": ["5000"],
+              "path": ["api", "requests", "{{requestId}}"]
+            },
+            "description": "Update join request status to: accepted, rejected, expired, or withdrawn\nTracks respondedAt timestamp when status changes"
+          }
+        },
+        {
+          "name": "Check & Expire Old Requests",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "http://localhost:5000/api/requests/check-expiration",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": ["5000"],
+              "path": ["api", "requests", "check-expiration"]
+            },
+            "description": "Auto-expire all pending requests older than 30 days"
+          }
+        },
+        {
+          "name": "Close Group Requests (Member Limit)",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "http://localhost:5000/api/requests/close-for-group/{{groupId}}",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": ["5000"],
+              "path": ["api", "requests", "close-for-group", "{{groupId}}"]
+            },
+            "description": "Auto-expire all pending join requests when group reaches member limit"
+          }
+        },
+        {
+          "name": "Cancel Join Request",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "http://localhost:5000/api/requests/{{requestId}}",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": ["5000"],
+              "path": ["api", "requests", "{{requestId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "INVITATION ENDPOINTS (Leader-Initiated)",
+      "item": [
+        {
+          "name": "Send Invitation to Student",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"{{userId}}\",\n  \"groupId\": \"{{groupId}}\",\n  \"message\": \"We'd love to have you on our team!\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/invitations",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": ["5000"],
+              "path": ["api", "invitations"]
+            },
+            "description": "Leader sends invitation to student with automatic skill analysis:\n- Calculates matchScore showing why student was invited\n- Marks requestType as 'leader-invitation'\n- Sets status to 'pending'\n- Prevents duplicate active invitations"
+          }
+        },
+        {
+          "name": "Get Student's Invitations",
+          "request": {
+            "method": "GET",
+            "url": {
+Create file succeeded
