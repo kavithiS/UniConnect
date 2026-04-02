@@ -34,8 +34,8 @@ export const userAPI = {
 export const joinRequestAPI = {
   send: (data) => api.post('/requests', data),
   getAll: () => api.get('/requests'),
-  getStudentRequests: (userId) => api.get(`/requests/student/${userId}`),
-  getGroupRequests: (groupId) => api.get(`/requests/group/${groupId}`),
+  getStudentRequests: (userId) => api.get(`/requests/sent?userId=${userId}`),
+  getGroupRequests: (groupId) => api.get(`/requests/received?groupId=${groupId}`),
   update: (id, data) => api.put(`/requests/${id}`, data),
   checkExpiration: () => api.put('/requests/check-expiration'),
   closeForGroup: (groupId) => api.put(`/requests/close-for-group/${groupId}`),
@@ -56,6 +56,11 @@ export const invitationAPI = {
 export const recommendationAPI = {
   getGroupsForUser: (userId) => api.get(`/recommend/groups/${userId}`),
   getUsersForGroup: (groupId) => api.get(`/recommend/users/${groupId}`)
+};
+
+// ============ AI CHAT ENDPOINT ============
+export const chatAPI = {
+  sendMessage: (payload) => api.post('/chat/message', payload)
 };
 
 export default api;

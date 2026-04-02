@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Send, X, Minimize2, Maximize2, Sparkles, ArrowRight, Lightbulb, CheckCircle2, Users, Zap } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { chatAPI } from '../api/api';
 
 const ChatBot = () => {
   const { isDarkMode } = useTheme();
@@ -226,31 +227,37 @@ const ChatBot = () => {
     }
     setIsTyping(true);
 
-    const detectedIntent = detectIntent(trimmedMessage);
-    const updatedTopics = [...new Set([...conversationContext.discussedTopics, detectedIntent])];
-    setConversationContext(prev => ({
-      ...prev,
-      discussedTopics: [...new Set([...prev.discussedTopics, detectedIntent])],
-      userIntent: detectedIntent,
-      lastTopic: detectedIntent
-    }));
+    try {
+      // Build history for the AI, skipping the complex UI objects
+      const history = messages
+        .filter(m => m.type === 'user' || m.type === 'bot')
+        .map(m => ({ role: m.type, text: m.text }));
 
-    // Simulate intelligent typing with variable delay
-    const delay = 600 + Math.random() * 400;
-    timeoutRef.current = setTimeout(() => {
-      const response = getSmartResponse(trimmedMessage, updatedTopics);
-      const botResponse = {
+      const res = await chatAPI.sendMessage({
+        message: trimmedMessage,
+        history: history
+      });
+
+      const aiResponseText = res.data?.data?.text || "I'm not sure how to respond to that.";
+
+      setMessages(prev => [...prev, {
         id: Date.now() + 1,
-        type: response.type || 'bot',
-        text: response.text,
-        features: response.features,
-        actions: response.actions,
-        subtext: response.subtext,
+        type: 'bot',
+        text: aiResponseText,
         timestamp: new Date()
-      };
-      setMessages(prev => [...prev, botResponse]);
+      }]);
+    } catch (err) {
+      console.error("AI Chat Error:", err);
+      // Fallback message if AI fails or no API key is supplied
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1,
+        type: 'bot',
+        text: err.response?.data?.message || "Oops! My AI brain is currently offline. Please ensure GEMINI_API_KEY is configured in the backend.",
+        timestamp: new Date()
+      }]);
+    } finally {
       setIsTyping(false);
-    }, delay);
+    }
   };
 
   const handleActionClick = (action) => {
@@ -357,7 +364,7 @@ const ChatBot = () => {
       default:
         return (
           <div key={message.id} className="flex justify-start animate-in fade-in slide-in-from-bottom-2">
-            <div className={`max-w-xs px-4 py-3 rounded-2xl text-sm leading-relaxed rounded-bl-none ${isDarkMode ? 'bg-slate-800 text-slate-100 border border-slate-700 hover:bg-slate-700' : 'bg-slate-200 text-slate-900 border border-slate-300 hover:bg-slate-250'} transition-colors`} style={{ animation: 'slideIn 0.3s ease-out' }}>
+            <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-[13px] leading-relaxed rounded-bl-none overflow-hidden ${isDarkMode ? 'bg-slate-800 text-slate-100 border border-slate-700' : 'bg-white text-slate-900 border border-[#e2e8f0] shadow-sm'} transition-colors whitespace-pre-wrap`} style={{ animation: 'slideIn 0.3s ease-out' }}>
               {message.text}
             </div>
           </div>

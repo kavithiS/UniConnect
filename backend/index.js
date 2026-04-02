@@ -12,6 +12,7 @@ const groupRoutes = require('./routes/groupRoutes');
 const requestApiRoutes = require('./routes/requestApiRoutes');
 const invitationRoutes = require('./routes/invitationRoutes');
 const recommendationRoutes = require('./routes/recommendationRoutes');
+const aiChatRoutes = require('./routes/aiChatRoutes');
 const Group = require('./models/Group');
 const { normalizeAllGroupCodes } = require('./utils/groupCode');
 
@@ -28,6 +29,7 @@ app.use('/api/groups', groupRoutes);
 app.use('/api/requests', requestApiRoutes);
 app.use('/api/invitations', invitationRoutes);
 app.use('/api/recommend', recommendationRoutes);
+app.use('/api/chat', aiChatRoutes);
 
 // MongoDB Connection
 
