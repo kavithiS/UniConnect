@@ -24,6 +24,10 @@ export default {
         success: '#10b981',
         warning: '#f59e0b',
         danger: '#ef4444',
+        dark: {
+          DEFAULT: "#1e293b",
+          lighter: "#334155",
+        },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
