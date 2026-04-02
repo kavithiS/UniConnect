@@ -1,10 +1,10 @@
 {
-  "name": "backend",
+  "name": "uniconnect-backend",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node ./node_modules/nodemon/bin/nodemon.js server.js",
+    "start": "node index.js",
+    "dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -17,8 +17,8 @@
     "express": "^5.2.1",
     "mongodb": "^7.1.0",
     "mongodb-memory-server": "^11.0.1",
-    "mongoose": "^9.2.3",
-    "multer": "^2.1.0",
+    "mongoose": "^9.2.4",
+    "multer": "^2.1.1",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {

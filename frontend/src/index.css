@@ -1,6 +1,112 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg: #f8fafc;
+    --color-panel: #ffffff;
+    --color-panel-border: #e2e8f0;
+  }
+
+  html.dark {
+    --color-bg: #0f172a;
+    --color-panel: #1e293b;
+    --color-panel-border: rgba(255, 255, 255, 0.1);
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
+      "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+    background-color: var(--color-bg);
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Background styling */
+html:not(.dark) body {
+  color: #0f172a;
+}
+
+html.dark body {
+  color: #f8fafc;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { @apply bg-gray-300 dark:bg-white/10 rounded-md; }
+::-webkit-scrollbar-thumb:hover { @apply bg-gray-400 dark:bg-white/20; }
+
+@layer components {
+
+  /* PANEL */
+  .glass-panel {
+    @apply bg-white text-gray-900 
+           dark:bg-slate-800 dark:text-white
+           backdrop-blur-md border border-gray-200 dark:border-white/10
+           rounded-xl shadow-md;
+  }
+
+  /* BUTTON BASE */
+  .btn {
+    @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold 
+           transition-all duration-200;
+  }
+
+  /* PRIMARY BUTTON */
+  .btn-primary {
+    @apply bg-blue-600 text-white 
+           hover:bg-blue-700 
+           dark:bg-blue-500 dark:hover:bg-blue-600;
+  }
+
+  /* SECONDARY BUTTON */
+  .btn-secondary {
+    @apply bg-gray-100 text-gray-800 border border-gray-300 
+           hover:bg-gray-200 
+           dark:bg-white/10 dark:text-slate-50 dark:border-white/10 dark:hover:bg-white/15;
+  }
+
+  /* INPUTS */
+  .form-control {
+    @apply w-full p-3 rounded-md border transition-all
+           bg-white text-gray-900 border-gray-300
+           focus:outline-none focus:ring-2 focus:ring-blue-500
+           dark:bg-slate-800 dark:text-white dark:border-white/10;
+  }
+
+  /* BADGES */
+  .priority-badge {
+    @apply px-2 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .priority-High {
+    @apply bg-red-500/20 text-red-500 border border-red-500/30;
+  }
+
+  .priority-Medium {
+    @apply bg-amber-500/20 text-amber-500 border border-amber-500/30;
+  }
+
+  .priority-Low {
+    @apply bg-emerald-500/20 text-emerald-500 border border-emerald-500/30;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
 @layer utilities {
   @keyframes slide-in-right {
@@ -18,39 +124,8 @@
     animation: slide-in-right 0.3s ease-out;
   }
 
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  .animate-fadeIn {
-    animation: fadeIn 0.2s ease-out;
-  }
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
-    "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-code {
-  font-family:
-    source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+  .animate-fadeIn { animation: fadeIn 0.2s ease-out; }
+  .animate-slideUp { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
 }
 
 /* WhatsApp-style scrollbar for emoji picker */
@@ -95,7 +170,7 @@ code {
   background: #6b7280;
 }
 
-/* Chat area and other scrollbars - matching emoji picker style */
+/* Chat area and other scrollbars */
 .app-scrollbar,
 .mention-dropdown-scrollbar {
   scrollbar-width: thin;
