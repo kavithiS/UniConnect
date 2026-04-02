@@ -13,7 +13,7 @@ const TaskDetails = () => {
 
   const fetchTaskDetails = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/tasks/${taskId}`);
+      const res = await axios.get(`http://localhost:5001/api/tasks/${taskId}`);
       setTask(res.data);
     } catch (err) {
       console.error(err);
@@ -30,7 +30,7 @@ const TaskDetails = () => {
     e.preventDefault();
     if (!commentText.trim()) return;
     try {
-      await axios.post(`http://localhost:5000/api/tasks/${taskId}/comments`, {
+      await axios.post(`http://localhost:5001/api/tasks/${taskId}/comments`, {
         text: commentText,
         author: 'Current User'
       });
@@ -52,7 +52,7 @@ const TaskDetails = () => {
   // ✅ NEW: update status
   const updateStatus = async (newStatus) => {
     try {
-      await axios.patch(`http://localhost:5000/api/tasks/${taskId}/status`, {
+      await axios.patch(`http://localhost:5001/api/tasks/${taskId}/status`, {
         status: newStatus
       });
       fetchTaskDetails();

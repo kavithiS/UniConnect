@@ -5,7 +5,7 @@ import ReceivedRequestCard from '../components/ReceivedRequestCard';
 import SentRequestCard from '../components/SentRequestCard';
 import SendRequestModal from '../components/SendRequestModal';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = 'http://localhost:5001';
 
 export default function RequestsPage() {
   const { isDarkMode } = useTheme();

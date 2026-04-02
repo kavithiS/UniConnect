@@ -45,7 +45,7 @@ const RequestInvitationManager = () => {
         console.log('✓ Backend connection successful');
       } catch (err) {
         console.error('✗ Backend connection failed:', err.message);
-        setError('❌ Cannot connect to backend. Is it running on port 5000?');
+        setError('❌ Cannot connect to backend. Is it running on port 5001?');
       }
     };
     checkBackend();
@@ -336,7 +336,7 @@ const RequestInvitationManager = () => {
   const seedSampleData = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/users/seed/sample');
+        const response = await fetch('http://localhost:5001/api/users/seed/sample');
       const data = await response.json();
       
       if (data.success) {

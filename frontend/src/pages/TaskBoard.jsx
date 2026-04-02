@@ -13,7 +13,7 @@ const TaskBoard = ({ projectId }) => {
 
   const fetchTasks = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/tasks/project/${projectId}`);
+      const res = await axios.get(`http://localhost:5001/api/tasks/project/${projectId}`);
       setTasks(res.data);
     } catch (err) {
       console.error(err);
@@ -40,7 +40,7 @@ const TaskBoard = ({ projectId }) => {
 
     try {
       // ✅ use PATCH (your backend route)
-      await axios.patch(`http://localhost:5000/api/tasks/${draggableId}/status`, {
+      await axios.patch(`http://localhost:5001/api/tasks/${draggableId}/status`, {
         status: newStatus
       });
     } catch (err) {
@@ -59,7 +59,7 @@ const TaskBoard = ({ projectId }) => {
   // ✅ DELETE function
   const deleteTask = async (taskId) => {
     try {
-      await axios.delete(`http://localhost:5000/api/tasks/${taskId}`);
+      await axios.delete(`http://localhost:5001/api/tasks/${taskId}`);
       fetchTasks();
     } catch (err) {
       console.error(err);

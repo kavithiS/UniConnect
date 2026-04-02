@@ -16,7 +16,7 @@ import RequestsPage from './pages/RequestsPage';
 import ChatBot from './components/ChatBot';
 
 // Backend base URL
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5001";
 
 const DEMO_PROJECT_ID = 'seed';
 
@@ -168,7 +168,7 @@ function App() {
         } catch (e) {
           console.error("Fallback error:", e.response || e.message);
 
-          setError("❌ Cannot connect to backend. Check if server is running on port 5000.");
+          setError("❌ Cannot connect to backend. Check if server is running on port 5001.");
         }
       } finally {
         setLoading(false);

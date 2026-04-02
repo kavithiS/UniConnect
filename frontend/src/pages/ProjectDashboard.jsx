@@ -12,7 +12,7 @@ const ProjectDashboard = ({ projectId }) => {
 
   const fetchDashboard = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/projects/${projectId}/dashboard`);
+      const res = await axios.get(`http://localhost:5001/api/projects/${projectId}/dashboard`);
       setData(res.data);
     } catch (err) {
       console.error(err);
@@ -30,7 +30,7 @@ const ProjectDashboard = ({ projectId }) => {
     if (!newMember.name || !newMember.role) return;
     setAddingMember(true);
     try {
-      await axios.post(`http://localhost:5000/api/projects/${projectId}/members`, newMember);
+      await axios.post(`http://localhost:5001/api/projects/${projectId}/members`, newMember);
       setNewMember({ name: '', role: '' });
       setIsAddMemberOpen(false);
       fetchDashboard();

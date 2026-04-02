@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Search, Send, Check, X, Clock, Users, Inbox, AlertCircle, ChevronDown, Loader } from 'lucide-react';
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5001";
 
 const SmartRequestHub = () => {
   // ============ STATE ============

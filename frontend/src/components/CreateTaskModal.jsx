@@ -20,7 +20,7 @@ const CreateTaskModal = ({ projectId, onClose, onTaskCreated }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await axios.post('http://localhost:5000/api/tasks', {
+      await axios.post('http://localhost:5001/api/tasks', {
         ...formData,
         projectId
       });
