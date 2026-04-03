@@ -1,0 +1,278 @@
+-- Student ID - IT23288430
+-- IT3020 - Database Systems Lab 2 (DBS)
+
+---------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------
+
+
+-- (1)
+
+--- a)
+
+CREATE TYPE emp_t;
+/
+CREATE TYPE dept_t;
+/
+
+-- DEPT Object Type
+CREATE TYPE dept_t AS OBJECT (
+    deptno     CHAR(3),
+    deptname   VARCHAR2(36),
+    mgrno      REF emp_t,
+    admrdept   REF dept_t
+);
+/
+
+-- EMP Object Type
+CREATE TYPE emp_t AS OBJECT (
+    empno      CHAR(6),
+    firstname  VARCHAR2(12),
+    lastname   VARCHAR2(15),
+    workdept   REF dept_t,
+    sex        CHAR(1),
+    birthdate  DATE,
+    salary     NUMBER(8,2)
+);
+/
+
+-----------------------------------------------------------------------------------
+
+--- b)
+
+-- ORDEPT table
+CREATE TABLE ORDEPT OF dept_t (
+    CONSTRAINT pk_ordept PRIMARY KEY (deptno)
+);
+/
+
+-- OREMP table
+CREATE TABLE OREMP OF emp_t (
+    CONSTRAINT pk_oremp PRIMARY KEY (empno)
+);
+/
+
+-----------------------------------------------------------------------------------
+
+--- c)
+
+-- Insert employees 
+INSERT INTO OREMP VALUES (
+  emp_t('000010','CHRISTINE','HAAS',NULL,'F',DATE '1953-08-14',72750)
+);
+
+INSERT INTO OREMP VALUES (
+  emp_t('000020','MICHAEL','THOMPSON',NULL,'M',DATE '1968-02-02',61250)
+);
+
+INSERT INTO OREMP VALUES (
+  emp_t('000030','SALLY','KWAN',NULL,'F',DATE '1971-05-11',58250)
+);
+
+INSERT INTO OREMP VALUES (
+  emp_t('000060','IRVING','STERN',NULL,'M',DATE '1965-07-07',55555)
+);
+
+INSERT INTO OREMP VALUES (
+  emp_t('000070','EVA','PULASKI',NULL,'F',DATE '1973-05-26',56170)
+);
+
+INSERT INTO OREMP VALUES (
+  emp_t('000050','JOHN','GEYER',NULL,'M',DATE '1955-09-15',60175)
+);
+
+INSERT INTO OREMP VALUES (
+  emp_t('000090','EILEEN','HENDERSON',NULL,'F',DATE '1961-05-15',49750)
+);
+
+INSERT INTO OREMP VALUES (
+  emp_t('000100','THEODORE','SPENSER',NULL,'M',DATE '1976-12-18',46150)
+);
+/
+
+-- Insert departments
+INSERT INTO ORDEPT VALUES (dept_t('A00','SPIFFY COMPUTER SERVICE DIV.',NULL,NULL)); 
+
+INSERT INTO ORDEPT VALUES (dept_t('B01','PLANNING',NULL,NULL)); 
+
+INSERT INTO ORDEPT VALUES (dept_t('C01','INFORMATION CENTRE',NULL,NULL)); 
+
+INSERT INTO ORDEPT VALUES (dept_t('D01','DEVELOPMENT CENTRE',NULL,NULL)); 
+/
+
+-- Update REF columns
+-- EMP
+UPDATE OREMP E
+SET e.workdept = (SELECT REF(d) FROM ordept d WHERE d.deptno='A00')
+WHERE e.empno='000010';
+
+UPDATE OREMP E
+SET e.workdept = (SELECT REF(d) FROM ordept d WHERE d.deptno='B01')
+WHERE e.empno ='000020';
+
+UPDATE OREMP E
+SET e.workdept = (SELECT REF(d) FROM ordept d WHERE d.deptno='C01')
+WHERE e.empno = '000030';
+
+UPDATE OREMP E
+SET e.workdept = (SELECT REF(d) FROM ordept d WHERE d.deptno='D01')
+WHERE e.empno = '000060';
+
+UPDATE OREMP E 
+SET e.workdept = (SELECT REF(d) FROM ORDEPT d WHERE d.deptno='D01') 
+WHERE e.empno='000070'; 
+
+UPDATE OREMP E 
+SET e.workdept = (SELECT REF(d) FROM ORDEPT d WHERE d.deptno='C01') 
+WHERE e.empno='000050';
+
+UPDATE OREMP E
+SET e.workdept = (SELECT REF(d) FROM ORDEPT d WHERE d.deptno='B01') 
+WHERE e.empno='000090';
+
+UPDATE OREMP E
+SET e.workdept = (SELECT REF(d) FROM ORDEPT d WHERE d.deptno='B01') 
+WHERE e.empno='000100'; 
+/
+
+
+-- DEPT 
+UPDATE ORDEPT D
+SET D.mgrno = (SELECT REF(E) FROM OREMP E WHERE E.empno = '000010')
+WHERE D.deptno = 'A00';
+
+UPDATE ORDEPT D
+SET D.mgrno = (SELECT REF(E) FROM OREMP E WHERE E.empno = '000020')
+WHERE D.deptno = 'B01';
+
+UPDATE ORDEPT D
+SET D.mgrno = (SELECT REF(E) FROM OREMP E WHERE E.empno = '000030')
+WHERE D.deptno = 'C01';
+
+UPDATE ORDEPT D
+SET D.mgrno = (SELECT REF(E) FROM OREMP E WHERE E.empno = '000060')
+WHERE D.deptno = 'D01';
+/
+
+UPDATE ORDEPT d
+SET d.admrdept = (SELECT REF(a) FROM ORDEPT a WHERE a.deptno='A00') 
+WHERE d.deptno='A00'; 
+
+UPDATE ORDEPT d
+SET d.admrdept = (SELECT REF(a) FROM ORDEPT a WHERE a.deptno='A00') 
+WHERE d.deptno='B01'; 
+
+UPDATE ORDEPT d 
+SET d.admrdept = (SELECT REF(a) FROM ORDEPT a WHERE a.deptno='A00') 
+WHERE d.deptno='C01';
+
+UPDATE ORDEPT d 
+SET d.admrdept = (SELECT REF(a) FROM ORDEPT a WHERE a.deptno='C01') 
+WHERE d.deptno='D01';
+
+COMMIT;
+
+---------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------
+
+
+-- (2)
+
+--- a)
+
+SELECT 
+    D.deptname,
+    D.mgrno.lastname AS manager_lastname
+FROM ORDEPT D;
+
+-----------------------------------------------------------------------------------
+
+--- b)
+
+SELECT
+    E.empno,
+    E.lastname,
+    E.workdept.deptname AS working_department
+FROM OREMP E;
+
+-----------------------------------------------------------------------------------
+
+--- c)
+
+SELECT
+    D.deptno,
+    D.deptname,
+    D.admrdept.deptname AS admin_dept_name
+FROM ORDEPT D;
+
+-----------------------------------------------------------------------------------
+
+--- d)
+
+SELECT
+    D.deptno,
+    D.deptname,
+    D.admrdept.deptname AS admin_dept_name,
+    D.admrdept.mgrno.lastname AS admin_mgr_lastname
+FROM ORDEPT D;
+
+-----------------------------------------------------------------------------------
+
+--- e)
+
+SELECT
+    E.empno,
+    E.firstname,
+    E.lastname,
+    E.salary,
+    E.workdept.mgrno.lastname AS last_name,
+    E.workdept.mgrno.salary AS manager_salary
+FROM OREMP E;
+
+-----------------------------------------------------------------------------------
+
+--- f)
+
+SELECT workdept.deptno, workdept.deptname,
+       AVG(CASE WHEN sex = 'M' THEN salary END) AS avg_male_salary,
+       AVG(CASE WHEN sex = 'F' THEN salary END) AS avg_female_salary
+FROM OREMP
+GROUP BY workdept.deptno, workdept.deptname;
+
+---------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------
+
+
+-- (3)
+
+#3. SQL Script, Echo & Termout (Theory Part)
+#Save queries into a script file
+#File name: Z:\script.sql
+#End each query with / (not ;)
+
+#Run script
+SQL>@Z:\script
+
+#Echo ON
+SQL>set echo on
+
+#Termout OFF
+SQL>set termout off
+
+#Spooling Output
+SQL>spool Z:\prac2.out
+SQL>@Z:\script
+SQL>spool off
+
+#Output is saved to a file.
+
+---------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------
+
+
+-- (4)
+
+DROP TABLE oremp   CASCADE CONSTRAINTS;
+DROP TABLE ordept  CASCADE CONSTRAINTS;
+
+DROP TYPE  emp_t   FORCE;
+DROP TYPE  dept_t  FORCE;

@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans bg-background text-slate-50 min-h-screen bg-fixed bg-radial-gradient-custom;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+/* Animation delay utilities */
+.animation-delay-2000 {
+  animation-delay: 2000ms;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4000ms;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { @apply bg-white/10 rounded-md; }
+::-webkit-scrollbar-thumb:hover { @apply bg-white/20; }
+
+@layer components {
+  .glass-panel {
+    @apply bg-panel backdrop-blur-md border border-panel-border rounded-xl shadow-md;
+  }
+  .btn {
+    @apply inline-flex items-center gap-2 px-6 py-3 rounded-md font-semibold border-none cursor-pointer transition-all duration-200 font-sans;
+  }
+  .btn-primary {
+    @apply bg-gradient-to-br from-primary to-accent text-white shadow-[0_4px_14px_0_rgba(59,130,246,0.39)] hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(59,130,246,0.5)] hover:brightness-110;
+  }
+  .btn-secondary {
+    @apply bg-white/10 text-slate-50 border border-panel-border hover:bg-white/15;
+  }
+  .form-control {
+    @apply w-full p-3 bg-slate-900/50 border border-panel-border rounded-md text-slate-50 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 transition-all;
+  }
+  
+  /* Badges */
+  .priority-badge {
+    @apply px-2 py-1 rounded-full text-xs font-semibold;
+  }
+  .priority-High {
+    @apply bg-red-500/20 text-red-300 border border-red-500/30;
+  }
+  .priority-Medium {
+    @apply bg-amber-500/20 text-amber-300 border border-amber-500/30;
+  }
+  .priority-Low {
+    @apply bg-emerald-500/20 text-emerald-300 border border-emerald-500/30;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.animate-fadeIn { animation: fadeIn 0.3s ease; }
+.animate-slideUp { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
