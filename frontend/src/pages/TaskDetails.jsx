@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowLeft, MessageSquare, Paperclip, Calendar, User, Flag, CheckCircle } from 'lucide-react';
+import { getApiBaseUrl, getBackendBaseUrl } from '../utils/backendUrl';
 
 const TaskDetails = () => {
   const { taskId } = useParams();
@@ -10,7 +11,8 @@ const TaskDetails = () => {
   const [commentText, setCommentText] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const API_BASE_URL = 'http://localhost:5000';
+  const API_BASE_URL = getBackendBaseUrl();
+  const API_BASE = getApiBaseUrl();
 
   const resolveAttachmentUrl = (url) => {
     if (!url) return '';
@@ -19,7 +21,7 @@ const TaskDetails = () => {
 
   const fetchTaskDetails = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/tasks/${taskId}`);
+      const res = await axios.get(`${API_BASE}/tasks/${taskId}`);
       setTask(res.data);
     } catch (err) {
       console.error(err);
@@ -49,7 +51,7 @@ const TaskDetails = () => {
 
     try {
       const res = await axios.post(
-        `http://localhost:5000/api/tasks/${taskId}/attachments`,
+        `${API_BASE}/tasks/${taskId}/attachments`,
         formData,
         { headers: { 'Content-Type': 'multipart/form-data' } }
       );
@@ -67,7 +69,7 @@ const TaskDetails = () => {
 
   const handleRemoveAttachment = async (id) => {
     try {
-      const res = await axios.delete(`http://localhost:5000/api/tasks/${taskId}/attachments/${id}`);
+      const res = await axios.delete(`${API_BASE}/tasks/${taskId}/attachments/${id}`);
       setTask(res.data);
       setAttachments(res.data.attachments || []);
       await fetchTaskDetails();
@@ -81,7 +83,7 @@ const TaskDetails = () => {
     e.preventDefault();
     if (!commentText.trim()) return;
     try {
-      await axios.post(`http://localhost:5000/api/tasks/${taskId}/comments`, {
+      await axios.post(`${API_BASE}/tasks/${taskId}/comments`, {
         text: commentText,
         author: 'Current User'
       });
@@ -101,7 +103,7 @@ const TaskDetails = () => {
 
   const updateStatus = async (newStatus) => {
     try {
-      await axios.patch(`http://localhost:5000/api/tasks/${taskId}/status`, {
+      await axios.patch(`${API_BASE}/tasks/${taskId}/status`, {
         status: newStatus
       });
       fetchTaskDetails();
@@ -112,7 +114,7 @@ const TaskDetails = () => {
 
   const updateSubtaskStatus = async (subtaskIndex, newStatus) => {
     try {
-      await axios.patch(`http://localhost:5000/api/tasks/${taskId}/subtasks/${subtaskIndex}`, {
+      await axios.patch(`${API_BASE}/tasks/${taskId}/subtasks/${subtaskIndex}`, {
         status: newStatus
       });
       fetchTaskDetails();

@@ -4,8 +4,9 @@ import { useTheme } from '../context/ThemeContext';
 import ReceivedRequestCard from '../components/ReceivedRequestCard';
 import SentRequestCard from '../components/SentRequestCard';
 import SendRequestModal from '../components/SendRequestModal';
+import { detectBackendBaseUrl, getBackendBaseUrl } from '../utils/backendUrl';
 
-const API_BASE = 'http://localhost:5001';
+const getApiBase = () => getBackendBaseUrl();
 
 export default function RequestsPage() {
   const { isDarkMode } = useTheme();
@@ -30,6 +31,14 @@ export default function RequestsPage() {
       setError('User ID not found. Please log in.');
       return;
     }
+
+    // Basic validation: ensure userId looks like a Mongo ObjectId (24 hex chars)
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(user);
+    if (!isValidObjectId) {
+      setError('Invalid userId in localStorage. Please log in with a proper account.');
+      return;
+    }
+
     fetchAllData();
   }, []);
 
@@ -37,28 +46,37 @@ export default function RequestsPage() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const userId = localStorage.getItem('userId');
+      if (!userId) {
+        throw new Error('User ID not found. Please reload and try again.');
+      }
+      const apiBase = getApiBase();
       
       // Fetch received requests
-      const receivedRes = await fetch(
-        `${API_BASE}/api/requests/received?userId=${userId}`
-      );
-      if (!receivedRes.ok) throw new Error('Failed to fetch received requests');
+      const receivedRes = await fetch(`${apiBase}/api/requests/received?userId=${userId}`);
+      if (!receivedRes.ok) {
+        const errBody = await receivedRes.json().catch(() => ({}));
+        throw new Error(errBody.message || 'Failed to fetch received requests');
+      }
       const receivedData = await receivedRes.json();
       setReceivedRequests(receivedData.requests || []);
 
       // Fetch sent requests
-      const sentRes = await fetch(
-        `${API_BASE}/api/requests/sent?userId=${userId}`
-      );
-      if (!sentRes.ok) throw new Error('Failed to fetch sent requests');
+      const sentRes = await fetch(`${apiBase}/api/requests/sent?userId=${userId}`);
+      if (!sentRes.ok) {
+        const errBody = await sentRes.json().catch(() => ({}));
+        throw new Error(errBody.message || 'Failed to fetch sent requests');
+      }
       const sentData = await sentRes.json();
       setSentRequests(sentData.requests || []);
 
       // Fetch all groups
-      const groupsRes = await fetch(`${API_BASE}/api/groups`);
-      if (!groupsRes.ok) throw new Error('Failed to fetch groups');
+      const groupsRes = await fetch(`${apiBase}/api/groups`);
+      if (!groupsRes.ok) {
+        const errBody = await groupsRes.json().catch(() => ({}));
+        throw new Error(errBody.message || 'Failed to fetch groups');
+      }
       const groupsData = await groupsRes.json();
       setGroups(groupsData.data || []);
 
@@ -73,7 +91,7 @@ export default function RequestsPage() {
   const handleAccept = async (requestId) => {
     try {
       const response = await fetch(
-        `${API_BASE}/api/requests/${requestId}/accept`,
+        `${getApiBase()}/api/requests/${requestId}/accept`,
         { method: 'PUT' }
       );
       const data = await response.json();
@@ -92,7 +110,7 @@ export default function RequestsPage() {
   const handleReject = async (requestId) => {
     try {
       const response = await fetch(
-        `${API_BASE}/api/requests/${requestId}/reject`,
+        `${getApiBase()}/api/requests/${requestId}/reject`,
         { method: 'PUT' }
       );
       const data = await response.json();
@@ -113,7 +131,7 @@ export default function RequestsPage() {
     
     try {
       const response = await fetch(
-        `${API_BASE}/api/requests/${requestId}`,
+        `${getApiBase()}/api/requests/${requestId}`,
         { method: 'DELETE' }
       );
       const data = await response.json();
@@ -146,7 +164,7 @@ export default function RequestsPage() {
 
     try {
       const response = await fetch(
-        `${API_BASE}/api/requests/${requestId}`,
+        `${getApiBase()}/api/requests/${requestId}`,
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -170,9 +188,13 @@ export default function RequestsPage() {
 
   const handleSendRequest = async (groupId, message) => {
     try {
-      const userId = localStorage.getItem('userId');
-      
-      const response = await fetch(`${API_BASE}/api/requests`, {
+      let userId = localStorage.getItem('userId');
+      if (!userId) {
+        setError('User session is invalid. Please reload and try again.');
+        return;
+      }
+
+      let response = await fetch(`${getApiBase()}/api/requests`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -182,9 +204,9 @@ export default function RequestsPage() {
           fromUserId: userId
         })
       });
-      
-      const data = await response.json();
-      
+
+      let data = await response.json().catch(() => ({}));
+
       if (data.success) {
         setShowSendModal(false);
         setSelectedGroupForRequest(null);

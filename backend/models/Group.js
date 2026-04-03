@@ -10,6 +10,7 @@ const groupSchema = new mongoose.Schema(
     title: {
       type: String,
       required: [true, 'Group title is required'],
+      alias: 'groupName',
       trim: true,
       minlength: [3, 'Title must be at least 3 characters']
     },
@@ -37,6 +38,10 @@ const groupSchema = new mongoose.Schema(
         ref: 'User'
       }
     ],
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Student',
+    },
     memberLimit: {
       type: Number,
       required: [true, 'Member limit is required'],
@@ -47,9 +52,17 @@ const groupSchema = new mongoose.Schema(
       type: String,
       enum: ['active', 'closed', 'archived'],
       default: 'active'
+    },
+    profilePicture: {
+      type: String,
+      default: null
     }
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+  }
 );
 
 // Pre-save hook to generate groupCode if missing

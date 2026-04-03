@@ -8,9 +8,23 @@ const path = require("path");
 const connectDB = require("./config/db");
 const studentRoutes = require("./routes/studentRoutes");
 const chatRoutes = require("./routes/chatRoutes");
+const projectRoutes = require("./routes/projectRoutes");
+const taskRoutes = require("./routes/taskRoutes");
+const userRoutes = require("./routes/userRoutes");
+const groupRoutes = require("./routes/groupRoutes");
+const requestApiRoutes = require("./routes/requestApiRoutes");
+const invitationRoutes = require("./routes/invitationRoutes");
+const recommendationRoutes = require("./routes/recommendationRoutes");
+const aiChatRoutes = require("./routes/aiChatRoutes");
+const authRoutes = require("./routes/authRoutes");
+const profileRoutes = require("./routes/profileRoutes");
+const suggestionRoutes = require("./routes/suggestionRoutes");
+const feedbackRoutes = require("./routes/feedbackRoutes");
+const bcrypt = require("bcryptjs");
 const Message = require("./models/Message");
 const Student = require("./models/Student");
 const Group = require("./models/Group");
+const User = require("./models/User");
 
 dotenv.config();
 
@@ -22,16 +36,42 @@ const PORT = process.env.PORT || 5000;
  * Socket.IO Configuration
  * Enable CORS for frontend connection
  */
+// CORS Configuration - Accept allowed origins
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+  "http://localhost:5176",
+  "http://localhost:5177",
+  "http://localhost:3000", // fallback for other dev setups
+];
+
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000", // React frontend URL
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     methods: ["GET", "POST"],
     credentials: true,
   },
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  credentials: true
+}));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
@@ -40,7 +80,19 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Routes
 app.use("/api/students", studentRoutes);
-app.use("/api/chat", chatRoutes);
+app.use("/api/chat", chatRoutes); // Group Chat exactly uses /api/chat
+app.use("/api/projects", projectRoutes);
+app.use("/api/tasks", taskRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/groups", groupRoutes);
+app.use("/api/requests", requestApiRoutes);
+app.use("/api/invitations", invitationRoutes);
+app.use("/api/recommend", recommendationRoutes);
+app.use("/api/aichat", aiChatRoutes); // Remapped AI chat to avoid conflict
+app.use("/api/auth", authRoutes);
+app.use("/api/profile", profileRoutes);
+app.use("/api/suggestions", suggestionRoutes);
+app.use("/api/feedback", feedbackRoutes);
 
 // Default route
 app.get("/", (req, res) => {
@@ -208,12 +260,55 @@ const seedDatabase = async () => {
   try {
     console.log("\n📋 Checking if database needs initialization...");
 
+    const demoEmail = "kavithi.thilakarathne123@gmail.com";
+    const demoPassword = "TempPass123!";
+    const authUserCount = await User.countDocuments();
+
+    // Keep one stable demo account for local development so login remains predictable
+    // across restarts and users are not forced into profile setup on startup.
+    let demoUser = await User.findOne({ email: demoEmail.toLowerCase() });
+    if (!demoUser) {
+      const passwordHash = await bcrypt.hash(demoPassword, 10);
+      demoUser = await User.create({
+        email: demoEmail,
+        passwordHash,
+        fullName: "Kavithi Thilakarathne",
+        name: "Kavithi",
+        registrationNumber: "IT00000000",
+        year: "3",
+        semester: "2",
+        enrolledYear: "2023",
+        about: "Default development account",
+        skills: ["Frontend", "Backend"],
+        profileCompleted: true,
+      });
+      console.log("✓ Created default auth user for development");
+    } else {
+      // Never overwrite an existing user's password at startup.
+      // This keeps manually registered credentials stable across restarts.
+      if (!demoUser.passwordHash) {
+        demoUser.passwordHash = await bcrypt.hash(demoPassword, 10);
+      }
+      if (!demoUser.fullName && demoUser.name) demoUser.fullName = demoUser.name;
+      if (!demoUser.name && demoUser.fullName) demoUser.name = demoUser.fullName;
+      if (typeof demoUser.profileCompleted !== "boolean") {
+        demoUser.profileCompleted = true;
+      }
+      await demoUser.save();
+      console.log("✓ Verified default auth user for development");
+    }
+
+    if (authUserCount === 0) {
+      console.log(`   Email: ${demoEmail}`);
+      console.log(`   Password: ${demoPassword}`);
+    }
+
     const OLD_GROUP_NAME = "AI Project Team Alpha";
     const NEW_GROUP_NAME = "ITPM Project Group 01";
 
     const renamed = await Group.updateMany(
-      { groupName: OLD_GROUP_NAME },
-      { $set: { groupName: NEW_GROUP_NAME } },
+      { title: OLD_GROUP_NAME },
+      { $set: { title: NEW_GROUP_NAME } },
     );
     if (renamed.modifiedCount > 0) {
       console.log(
@@ -299,14 +394,21 @@ const seedDatabase = async () => {
 
     // Get student IDs
     const studentIds = students.map((student) => student._id);
+    // Keep available slots so join-request features can be tested immediately
+    const initialMembers = studentIds.slice(0, 2);
 
     // Create a group with all students as members
     const dummyGroup = await Group.create({
-      groupName: "ITPM Project Group 01",
-      members: studentIds,
-      createdBy: studentIds[0],
+      title: "ITPM Project Group 01",
+      description:
+        "Project group for course ITPM. Collaborate and build the final project together.",
+      members: initialMembers,
+      createdBy: initialMembers[0],
+      memberLimit: 5,
+      requiredSkills: ["JavaScript", "Node.js", "React"],
+      status: "active",
     });
-    console.log(`✓ Created group: ${dummyGroup.groupName}`);
+    console.log(`✓ Created group: ${dummyGroup.title}`);
 
     // Create initial messages
     const initialMessages = [
@@ -350,7 +452,7 @@ const seedDatabase = async () => {
     });
 
     console.log(`\n👥 GROUP CREATED:`);
-    console.log(`   • Name: ${dummyGroup.groupName}`);
+    console.log(`   • Name: ${dummyGroup.title}`);
     console.log(`   • Group ID: ${dummyGroup._id}`);
     console.log(`   • Members: ${dummyGroup.members.length}`);
 
@@ -382,18 +484,36 @@ const isPortAvailable = (port) =>
     tester.listen(port);
   });
 
+// Try to find an available port starting at `startPort`, checking `attempts` ports.
+const getAvailablePort = async (startPort, attempts = 10) => {
+  const start = parseInt(startPort, 10) || 5000;
+  for (let i = 0; i < attempts; i++) {
+    const portToCheck = start + i;
+    // eslint-disable-next-line no-await-in-loop
+    if (await isPortAvailable(portToCheck)) return portToCheck;
+  }
+  return null;
+};
+
 const startServer = async () => {
   try {
-    const portFree = await isPortAvailable(PORT);
-    if (!portFree) {
+    const preferredPort = parseInt(PORT, 10) || 5000;
+    const availablePort = await getAvailablePort(preferredPort, 20);
+
+    if (!availablePort) {
       console.log(
-        `⚠ Port ${PORT} is already in use. Backend is likely already running.`,
+        `⚠ No available ports found in range ${preferredPort}..${preferredPort + 19}.`,
       );
-      console.log(
-        "→ Stop the existing process or run only one backend instance.",
-      );
+      console.log("→ Stop the existing process or free up a port and try again.");
       process.exit(0);
       return;
+    }
+
+    // If the preferred port is in use, log that we're falling back
+    if (availablePort !== preferredPort) {
+      console.log(
+        `⚠ Preferred port ${preferredPort} is in use — falling back to available port ${availablePort}`,
+      );
     }
 
     await connectDB();
@@ -401,8 +521,8 @@ const startServer = async () => {
     // Seed database if empty
     await seedDatabase();
 
-    server.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
+    server.listen(availablePort, () => {
+      console.log(`Server is running on port ${availablePort}`);
       console.log(`Socket.IO is ready for real-time communication`);
     });
   } catch (error) {

@@ -241,6 +241,7 @@ exports.getGroupDetails = async (req, res) => {
         message: "Group not found. Returning default group details.",
         data: {
           _id: groupId,
+          title: "Group Chat",
           groupName: "Group Chat",
           members: [],
           description: "",
@@ -826,7 +827,7 @@ exports.updateGroup = async (req, res) => {
 
     // Build update object
     const updateData = {};
-    if (groupName !== undefined) updateData.groupName = groupName;
+    if (groupName !== undefined) updateData.title = groupName;
     if (profilePicture !== undefined)
       updateData.profilePicture = profilePicture;
 

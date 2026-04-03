@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useTheme } from "../../context/ThemeContext";
 import { io } from "socket.io-client";
 import {
   getMessages,
@@ -18,6 +19,7 @@ import {
   clearGroupMessages,
   leaveGroup,
 } from "../../services/chatService";
+import { getBackendBaseUrl } from "../../utils/backendUrl";
 import studentService from "../../services/studentService";
 import {
   FaPaperPlane,
@@ -32,7 +34,6 @@ import {
   FaPause,
   FaPlay,
 } from "react-icons/fa";
-import Sidebar from "../../components/sidebar_components/Sidebar";
 import {
   MessageContextMenu,
   MessageItem,
@@ -44,13 +45,15 @@ import {
 } from "../../components/chat_area_components";
 
 // Socket.IO connection
-const socket = io("http://localhost:5000");
+const socket = io(getBackendBaseUrl());
 
 const GroupChat = () => {
+  const { isDarkMode } = useTheme();
   // Get current user from localStorage (set by StudentProfile)
   const storedFirstName = localStorage.getItem("userFirstName") || "John";
   const storedLastName = localStorage.getItem("userLastName") || "Smith";
-  const storedUserId = localStorage.getItem("userId") || "S001";
+  // do NOT default to an invalid id like 'S001' — prefer null so code validates correctly
+  const storedUserId = localStorage.getItem("userId") || null;
   const storedProfilePicture = localStorage.getItem("userProfilePicture");
 
   // Dynamically load group ID from database instead of hardcoding
@@ -127,6 +130,7 @@ const GroupChat = () => {
   const [recordedAudioFile, setRecordedAudioFile] = useState(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [showGroupDetails, setShowGroupDetails] = useState(false); // Group details panel
+  const [noGroupsAvailable, setNoGroupsAvailable] = useState(false); // Flag when no groups exist
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -160,8 +164,10 @@ const GroupChat = () => {
 
         if (students.length > 0) {
           // For now, use the first student (or find by userId from localStorage)
+          // Try to match by _id or by a legacy userId field, otherwise fallback to first student
           const currentUser =
-            students.find((s) => s.userId === storedUserId) || students[0];
+            students.find((s) => (s._id && s._id.toString() === storedUserId) || (s.userId && s.userId === storedUserId))
+            || students[0];
 
           setSenderId(currentUser._id);
           setSenderName(`${currentUser.firstName} ${currentUser.lastName}`);
@@ -204,6 +210,7 @@ const GroupChat = () => {
             if (allGroups.length > 0) {
               selectedGroupId = allGroups[0]._id;
               setGroupId(selectedGroupId);
+              setNoGroupsAvailable(false);
               console.log(
                 "✓ Loaded group ID from database:",
                 selectedGroupId,
@@ -211,14 +218,15 @@ const GroupChat = () => {
                 allGroups[0].groupName,
               );
             } else {
-              console.error("❌ No groups found in database!");
-              setError("No groups available");
+              console.warn("⚠ No groups found in database!");
+              setNoGroupsAvailable(true);
+              setError(null);
               setIsLoading(false);
               return;
             }
           } catch (groupsFetchErr) {
             console.error("❌ Failed to fetch groups:", groupsFetchErr);
-            setError("Failed to load group");
+            setError("Failed to load groups: " + groupsFetchErr.message);
             setIsLoading(false);
             return;
           }
@@ -1713,20 +1721,63 @@ const GroupChat = () => {
     );
   }
 
-  return (
-    <div className="flex h-screen bg-gray-100 dark:bg-gray-900 relative">
-      {/* Sidebar */}
-      <Sidebar
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-      />
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div className="rounded-lg bg-white dark:bg-gray-800 p-8 text-center max-w-md shadow-lg">
+          <div className="text-red-500 dark:text-red-400 text-3xl mb-4">⚠️</div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Error Loading Chat</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading chat...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show "no groups available" state
+  if (noGroupsAvailable) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div className="rounded-lg bg-white dark:bg-gray-800 p-8 text-center max-w-md shadow-lg">
+          <div className="text-gray-400 dark:text-gray-500 text-3xl mb-4">📭</div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Groups Available</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-2">You haven't joined any groups yet.</p>
+          <p className="text-gray-500 dark:text-gray-500 text-sm mb-6">Create or join a group to start chatting!</p>
+          <a
+            href="/"
+            className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
+          >
+            Go to Groups
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`flex h-screen relative w-full ${isDarkMode ? 'bg-gray-900' : 'bg-gray-100'}`}>
       {/* Main Chat Area */}
-      <div
-        className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-8"}`}
-      >
+      <div className="flex-1 flex flex-col w-full">
         {/* Chat Header */}
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-1 shadow-sm dark:shadow-lg">
+        <div className={`border-b px-6 py-1 shadow-sm ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
           <button
             onClick={() => setShowGroupDetails(true)}
             className="flex items-center space-x-2 w-full text-left rounded-lg p-1 transition-colors duration-200"
@@ -1743,10 +1794,10 @@ const GroupChat = () => {
               )}
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+              <h1 className={`text-lg font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>
                 {groupDetails?.groupName || "Group Chat"}
               </h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 {groupDetails?.members?.length || 0} members
               </p>
             </div>
@@ -1754,8 +1805,8 @@ const GroupChat = () => {
         </div>
 
         {selectionMode && (
-          <div className="px-6 py-2 bg-indigo-50 dark:bg-indigo-900/20 border-b border-indigo-200 dark:border-indigo-700 flex items-center justify-between">
-            <p className="text-sm text-indigo-700 dark:text-indigo-300">
+          <div className={`px-6 py-2 border-b flex items-center justify-between ${isDarkMode ? 'bg-indigo-900/20 border-indigo-700' : 'bg-indigo-50 border-indigo-200'}`}>
+            <p className={`text-sm ${isDarkMode ? 'text-indigo-300' : 'text-indigo-700'}`}>
               {selectedMessageIds.length} selected
             </p>
             <div className="flex gap-2">
@@ -1844,10 +1895,10 @@ const GroupChat = () => {
         )}
 
         {/* Messages Container */}
-        <div className="app-scrollbar flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-6 py-4 space-y-4 relative">
+        <div className={`app-scrollbar flex-1 overflow-y-auto px-6 py-4 space-y-4 relative ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
           {messages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
-              <div className="text-center text-gray-400 dark:text-gray-500">
+              <div className={`text-center ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                 <p className="text-lg">No messages yet</p>
                 <p className="text-sm">Start the conversation!</p>
               </div>
@@ -1888,15 +1939,15 @@ const GroupChat = () => {
           {/* Typing Indicator */}
           {typing && (
             <div className="flex justify-start">
-              <div className="bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-lg px-4 py-2 shadow-sm dark:shadow-md">
+              <div className={`rounded-lg px-4 py-2 shadow-sm ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
                 <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"></div>
+                  <div className={`w-2 h-2 rounded-full animate-bounce ${isDarkMode ? 'bg-gray-500' : 'bg-gray-400'}`}></div>
                   <div
-                    className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"
+                    className={`w-2 h-2 rounded-full animate-bounce ${isDarkMode ? 'bg-gray-500' : 'bg-gray-400'}`}
                     style={{ animationDelay: "0.1s" }}
                   ></div>
                   <div
-                    className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"
+                    className={`w-2 h-2 rounded-full animate-bounce ${isDarkMode ? 'bg-gray-500' : 'bg-gray-400'}`}
                     style={{ animationDelay: "0.2s" }}
                   ></div>
                 </div>
@@ -1908,21 +1959,21 @@ const GroupChat = () => {
         </div>
 
         {/* Message Input Area */}
-        <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4">
+        <div className={`border-t px-6 py-4 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
           {/* Reply Preview */}
           {replyingTo && (
-            <div className="mb-3 bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500 rounded px-4 py-3 flex items-start justify-between">
+            <div className={`mb-3 border-l-4 border-blue-500 rounded px-4 py-3 flex items-start justify-between ${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-50'}`}>
               <div className="flex-1">
-                <p className="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-1">
+                <p className={`text-xs font-semibold mb-1 ${isDarkMode ? 'text-blue-300' : 'text-blue-800'}`}>
                   Replying to {replyingTo.senderName}
                 </p>
-                <p className="text-sm text-blue-700 dark:text-blue-200 line-clamp-2">
+                <p className={`text-sm line-clamp-2 ${isDarkMode ? 'text-blue-200' : 'text-blue-700'}`}>
                   {replyingTo.text}
                 </p>
               </div>
               <button
                 onClick={() => setReplyingTo(null)}
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 ml-2"
+                className={`ml-2 ${isDarkMode ? 'text-blue-400 hover:text-blue-200' : 'text-blue-600 hover:text-blue-800'}`}
               >
                 <FaTimes size={16} />
               </button>
@@ -1931,9 +1982,9 @@ const GroupChat = () => {
 
           {/* Edit Mode Indicator */}
           {editingMessage && (
-            <div className="mb-3 bg-purple-50 dark:bg-purple-900/30 border-l-4 border-purple-500 rounded px-4 py-3 flex items-start justify-between">
+            <div className={`mb-3 border-l-4 border-purple-500 rounded px-4 py-3 flex items-start justify-between ${isDarkMode ? 'bg-purple-900/30' : 'bg-purple-50'}`}>
               <div className="flex-1">
-                <p className="text-xs font-semibold text-purple-800 dark:text-purple-300 mb-1">
+                <p className={`text-xs font-semibold mb-1 ${isDarkMode ? 'text-purple-300' : 'text-purple-800'}`}>
                   Editing message
                 </p>
               </div>
@@ -1942,7 +1993,7 @@ const GroupChat = () => {
                   setEditingMessage(null);
                   setMessageText("");
                 }}
-                className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 ml-2"
+                className={`ml-2 ${isDarkMode ? 'text-purple-400 hover:text-purple-200' : 'text-purple-600 hover:text-purple-800'}`}
               >
                 <FaTimes size={16} />
               </button>
@@ -1983,7 +2034,7 @@ const GroupChat = () => {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-full p-3 transition"
+              className={`rounded-full p-3 transition ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
               disabled={isSending}
             >
               <FaPaperclip size={18} />
@@ -1997,7 +2048,7 @@ const GroupChat = () => {
             />
 
             {/* Message Input */}
-            <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full px-4 py-2 relative">
+            <div className={`flex-1 rounded-full px-4 py-2 relative ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
               {/* Emoji Picker */}
               <EmojiPicker
                 show={showEmojiPicker}
@@ -2112,7 +2163,7 @@ const GroupChat = () => {
                           ? "Edit message..."
                           : "Type a message... @ to mention"
                       }
-                      className="flex-1 bg-transparent outline-none text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400"
+                      className={`flex-1 bg-transparent outline-none placeholder-opacity-70 ${isDarkMode ? 'text-gray-200 placeholder-gray-400' : 'text-gray-800 placeholder-gray-500'}`}
                       disabled={isSending}
                     />
 
@@ -2120,7 +2171,7 @@ const GroupChat = () => {
                     <button
                       type="button"
                       onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                      className="text-gray-500 dark:text-gray-400 hover:text-yellow-500 dark:hover:text-yellow-400 transition"
+                      className={`transition ${isDarkMode ? 'text-gray-400 hover:text-yellow-400' : 'text-gray-500 hover:text-yellow-500'}`}
                       disabled={isSending}
                     >
                       <FaSmile size={20} />
@@ -2129,7 +2180,7 @@ const GroupChat = () => {
                     <button
                       type="button"
                       onClick={handleStartVoiceRecording}
-                      className="text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition"
+                      className={`transition ${isDarkMode ? 'text-gray-400 hover:text-blue-400' : 'text-gray-500 hover:text-blue-500'}`}
                       disabled={isSending || !!selectedFile || !!editingMessage}
                       title="Record voice"
                     >
@@ -2205,8 +2256,8 @@ const GroupChat = () => {
                 !editingMessage &&
                 !recordedAudioFile &&
                 !isRecording
-                  ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                  : "bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white"
+                  ? isDarkMode ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : isDarkMode ? 'bg-blue-700 hover:bg-blue-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
               }`}
               title="Send message or voice"
             >

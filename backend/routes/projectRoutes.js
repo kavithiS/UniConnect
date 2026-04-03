@@ -6,177 +6,41 @@ const User = require('../models/User');
 const Group = require('../models/Group');
 
 
-// 🔥 SEED PROJECT + USERS + GROUPS (GET + POST both supported) - MUST BE BEFORE :projectId routes
+// 🔥 SEED PROJECT + USERS + GROUPS (DISABLED - NO AUTO-SEEDING)
 const seedProject = async (req, res) => {
     try {
-        // Check if already seeded
-        let project = await Project.findOne({ title: "Web App Final Assessment" });
-        let seedData = {};
-
-        if (!project) {
-            // ===== CREATE USERS =====
-            const users = await User.insertMany([
-                {
-                    name: "Alice Johnson",
-                    email: "alice@example.com",
-                    role: "Leader",
-                    skills: ["React", "Node.js", "PostgreSQL", "Project Management", "UI/UX"]
-                },
-                {
-                    name: "Bob Smith",
-                    email: "bob@example.com",
-                    role: "Developer",
-                    skills: ["React", "Vue.js", "JavaScript", "Python", "REST APIs"]
-                },
-                {
-                    name: "Charlie Davis",
-                    email: "charlie@example.com",
-                    role: "Designer",
-                    skills: ["Figma", "UI/UX", "Graphic Design", "Prototyping"]
-                },
-                {
-                    name: "Diana Wilson",
-                    email: "diana@example.com",
-                    role: "Developer",
-                    skills: ["Java", "Spring Boot", "Databases", "Microservices"]
-                },
-                {
-                    name: "Eve Martinez",
-                    email: "eve@example.com",
-                    role: "Student",
-                    skills: ["React", "HTML/CSS", "JavaScript"]
-                }
-            ]);
-
-            seedData.userIds = users.map(u => u._id);
-            console.log(`✅ Created ${users.length} sample users`);
-
-            // ===== CREATE GROUPS =====
-            // Generate groupCodes first (insertMany doesn't trigger pre-save hooks)
-            const groupCodesData = [
-                {
-                    title: "Web App Development Team",
-                    description: "Building a modern web application with React and Node.js. We need developers experienced in full-stack development.",
-                    requiredSkills: ["React", "Node.js", "REST APIs"],
-                    members: [users[0]._id, users[1]._id],
-                    memberLimit: 5,
-                    status: "active"
-                },
-                {
-                    title: "Mobile App Project",
-                    description: "Creating a cross-platform mobile application. Looking for developers with React Native and mobile development experience.",
-                    requiredSkills: ["React Native", "JavaScript", "Mobile Dev"],
-                    members: [users[2]._id, users[3]._id],
-                    memberLimit: 4,
-                    status: "active"
-                },
-                {
-                    title: "UI/UX Design Squad",
-                    description: "Designing intuitive user interfaces and experiences for our digital products. Need designers with Figma expertise.",
-                    requiredSkills: ["Figma", "UI/UX", "Prototyping"],
-                    members: [users[2]._id],
-                    memberLimit: 3,
-                    status: "active"
-                },
-                {
-                    title: "Backend Optimization Group",
-                    description: "Optimizing backend performance and database queries. Looking for experienced backend engineers.",
-                    requiredSkills: ["Java", "Databases", "Spring Boot"],
-                    members: [users[3]._id],
-                    memberLimit: 4,
-                    status: "active"
-                }
-            ];
-
-            // Generate unique codes for each group
-            const { generateUniqueGroupCode } = require('../utils/groupCode');
-            for (const groupData of groupCodesData) {
-                groupData.groupCode = await generateUniqueGroupCode(Group);
-            }
-
-            const groups = await Group.insertMany(groupCodesData);
-
-            seedData.groupIds = groups.map(g => ({
-                _id: g._id,
-                groupCode: g.groupCode,
-                title: g.title
-            }));
-            console.log(`✅ Created ${groups.length} sample groups`);
-
-            // ===== CREATE PROJECT =====
-            project = new Project({
-                title: "Web App Final Assessment",
-                groupId: groups[0]._id.toString(),
-                members: [
-                    { name: "Alice", role: "Leader" },
-                    { name: "Bob", role: "Developer" },
-                    { name: "Charlie", role: "Designer" }
-                ]
-            });
-
-            const savedProject = await project.save();
-
-            // ===== CREATE TASKS =====
-            await Task.insertMany([
-                {
-                    title: "Design UI Mockups",
-                    description: "Create Figma designs",
-                    assignedTo: "Charlie",
-                    priority: "High",
-                    status: "done",
-                    dueDate: new Date(Date.now() - 86400000),
-                    projectId: savedProject._id
-                },
-                {
-                    title: "Setup Backend Server",
-                    description: "Initialize express and mongodb",
-                    assignedTo: "Alice",
-                    priority: "High",
-                    status: "inprogress",
-                    dueDate: new Date(Date.now() + 86400000),
-                    projectId: savedProject._id
-                },
-                {
-                    title: "Implement Kanban Board",
-                    description: "Use dnd library",
-                    assignedTo: "Bob",
-                    priority: "Medium",
-                    status: "todo",
-                    dueDate: new Date(Date.now() + 86400000 * 3),
-                    projectId: savedProject._id
-                }
-            ]);
-
-            console.log(`✅ Created project and ${3} sample tasks`);
-
-            return res.json({
-                ...savedProject.toObject(),
-                seedData
+        // Auto-seeding is disabled. Users must manually create projects and groups.
+        // Return existing data if available.
+        const projects = await Project.find().limit(10);
+        const groups = await Group.find().limit(10);
+        const users = await User.find().limit(10);
+        
+        if (projects.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'No projects found. Please create a project to get started.'
             });
         }
-
-        // If project already exists, still return seedData by fetching users and groups
-        const existingUsers = await User.find({});
-        const existingGroups = await Group.find({});
         
-        const existingSeedData = {
-            userIds: existingUsers.map(u => u._id),
-            groupIds: existingGroups.map(g => ({
-                _id: g._id,
-                groupCode: g.groupCode,
-                title: g.title
-            }))
-        };
-
         res.json({
-            ...project.toObject(),
-            seedData: existingSeedData
+            success: true,
+            message: 'Returned existing data (auto-seeding disabled)',
+            seedData: {
+                userIds: users.map(u => u._id),
+                groupIds: groups.map(g => ({
+                    _id: g._id,
+                    groupCode: g.groupCode,
+                    name: g.title
+                })),
+                projectIds: projects.map(p => p._id)
+            }
         });
-
-    } catch (error) {
-        console.error("Seed error:", error.message);
-        console.error("Full error:", error);
-        res.status(500).json({ message: error.message, error: process.env.NODE_ENV === 'development' ? error.stack : undefined });
+    } catch (err) {
+        console.error('Seed error:', err);
+        res.status(500).json({
+            success: false,
+            message: 'Error retrieving data'
+        });
     }
 };
 
@@ -196,7 +60,24 @@ router.get('/seed/fallback', async (req, res) => {
     }
 });
 
-// ✅ Get project dashboard details
+// ✅ Get all projects
+router.get('/', async (req, res) => {
+    try {
+        const projects = await Project.find({}).sort({ createdAt: -1 });
+
+        res.json({
+            success: true,
+            count: projects.length,
+            data: projects,
+            projects
+        });
+    } catch (error) {
+        console.error('Error fetching projects:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// ✅ Get project dashboard details (MUST BE BEFORE /:projectId route)
 router.get('/:projectId/dashboard', async (req, res) => {
     try {
         const project = await Project.findById(req.params.projectId);
@@ -243,6 +124,22 @@ router.get('/:projectId/dashboard', async (req, res) => {
     }
 });
 
+// ✅ Get single project by ID
+router.get('/:projectId', async (req, res) => {
+    try {
+        const project = await Project.findById(req.params.projectId);
+        if (!project) return res.status(404).json({ message: 'Project not found' });
+
+        res.json({
+            success: true,
+            data: project
+        });
+    } catch (error) {
+        console.error('Error fetching project:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // ✅ Add member to project
 router.post('/:projectId/members', async (req, res) => {
     try {
@@ -263,5 +160,87 @@ router.post('/:projectId/members', async (req, res) => {
     }
 });
 
+
+// ✅ Create a new project
+router.post('/', async (req, res) => {
+    try {
+        const { title, description, members, groupId } = req.body;
+        if (!title || !members || members.length < 1) {
+            return res.status(400).json({ message: 'Title and members are required' });
+        }
+
+        const normalizedGroupId = (groupId || description || '').toString().trim();
+
+        const project = new Project({
+            title,
+            description,
+            groupId: normalizedGroupId,
+            members,
+            status: 'active'
+        });
+
+        const savedProject = await project.save();
+        res.status(201).json(savedProject);
+    } catch (error) {
+        console.error("Error creating project:", error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// ✅ Delete a project and its associated tasks
+router.delete('/:projectId', async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        console.log(`🗑️ Delete request for project: ${projectId}`);
+
+        // Validate projectId format
+        if (!projectId || projectId.length < 5) {
+            console.warn(`⚠️ Invalid project ID format: ${projectId}`);
+            return res.status(400).json({ 
+                success: false,
+                message: 'Invalid project ID format' 
+            });
+        }
+
+        // Check if project exists
+        const project = await Project.findById(projectId);
+        console.log(`📊 Project lookup result:`, project ? `Found` : `Not found`);
+        
+        if (!project) {
+            console.warn(`❌ Project not found: ${projectId}`);
+            // List available projects for debugging
+            const allProjects = await Project.find({}).select('_id title');
+            console.log(`📋 Available projects:`, allProjects.map(p => `${p._id} (${p.title})`));
+            
+            return res.status(404).json({ 
+                success: false,
+                message: `Project with ID ${projectId} not found in database`,
+                availableProjects: allProjects.map(p => ({ _id: p._id, title: p.title }))
+            });
+        }
+
+        // Delete all tasks associated with this project
+        const deleteTasksResult = await Task.deleteMany({ projectId });
+        console.log(`✅ Deleted ${deleteTasksResult.deletedCount} tasks for project ${projectId}`);
+
+        // Delete the project
+        const deleteProjectResult = await Project.findByIdAndDelete(projectId);
+        console.log(`✅ Project deleted: ${projectId}`);
+
+        res.json({ 
+            success: true,
+            message: 'Project deleted successfully',
+            deletedProject: deleteProjectResult,
+            deletedTasksCount: deleteTasksResult.deletedCount
+        });
+    } catch (error) {
+        console.error("❌ Error deleting project:", error);
+        res.status(500).json({ 
+            success: false,
+            message: `Server error: ${error.message}`,
+            error: process.env.NODE_ENV === 'development' ? error.toString() : undefined
+        });
+    }
+});
 
 module.exports = router;

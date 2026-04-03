@@ -6,16 +6,56 @@ const mongoose = require('mongoose');
  */
 const userSchema = new mongoose.Schema(
   {
+    fullName: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     name: {
       type: String,
-      required: [true, 'User name is required'],
       trim: true,
-      minlength: [2, 'Name must be at least 2 characters']
+      default: ''
     },
     email: {
       type: String,
       trim: true,
+      lowercase: true,
+      unique: true,
+      sparse: true,
+      default: undefined
+    },
+    passwordHash: {
+      type: String,
       default: ''
+    },
+    registrationNumber: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    year: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    semester: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    enrolledYear: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    about: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    profileCompleted: {
+      type: Boolean,
+      default: false
     },
     skills: {
       type: [String],
@@ -30,5 +70,20 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+userSchema.pre('save', function userPreSave() {
+  if (!this.name && this.fullName) {
+    this.name = this.fullName;
+  }
+  if (!this.fullName && this.name) {
+    this.fullName = this.name;
+  }
+});
+
+userSchema.methods.toJSON = function userToJSON() {
+  const user = this.toObject();
+  delete user.passwordHash;
+  return user;
+};
 
 module.exports = mongoose.model('User', userSchema);

@@ -9,11 +9,9 @@ const userController = require('../controllers/userController');
  * GET    /users/:id    - Get user by ID
  * PUT    /users/:id    - Update user
  * DELETE /users/:id    - Delete user
- * GET    /seed/sample  - Seed sample data
  */
 
 router.post('/', userController.createUser);
-router.get('/seed/sample', userController.seedSampleData);
 router.get('/', userController.getAllUsers);
 router.get('/:id', userController.getUserById);
 router.put('/:id', userController.updateUser);

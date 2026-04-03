@@ -1,8 +1,8 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { CheckSquare, MessageSquare, Sun, Moon, Users } from 'lucide-react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useNavigate } from 'react-router-dom';
 
-import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { ThemeProvider } from './context/ThemeContext';
+import MainLayout from './layouts/MainLayout';
 import GroupsDashboard from './pages/GroupsDashboard';
 import CreateGroupPage from './pages/CreateGroupPage';
 import GroupDetailsPage from './pages/GroupDetailsPage';
@@ -11,105 +11,224 @@ import SmartRequestHub from './pages/SmartRequestHub';
 import RequestsPage from './pages/RequestsPage';
 import ChatBot from './components/ChatBot';
 
-function Sidebar() {
-  const location = useLocation();
-  const { isDarkMode, toggleTheme } = useTheme();
+// Main branch components
+import GroupChat from './pages/chat_area_page/GroupChat';
 
-  const menuItems = [
-    { path: '/', icon: <Users size={18} />, label: 'Groups' },
-    { path: '/requests', icon: <MessageSquare size={18} />, label: 'Requests & Invites' },
-    { path: '/recommendations', icon: <CheckSquare size={18} />, label: 'Recommendations' },
-  ];
+// Other missing components
+import AddProject from './pages/AddProject';
+import ProjectDashboard from './pages/ProjectDashboard';
+import TaskBoard from './pages/TaskBoard';
+import TaskDetails from './pages/TaskDetails';
+import { detectBackendBaseUrl, getApiBaseUrl } from './utils/backendUrl';
+import LoginPage from './pages/auth/LoginPage';
+import RegisterPage from './pages/auth/RegisterPage';
+import ProfileSetupPage from './pages/auth/ProfileSetupPage';
+import PersonalizedHomePage from './pages/PersonalizedHomePage';
+import FeedbackPage from './pages/FeedbackPage';
+import UserProfilePage from './pages/UserProfilePage';
+import LandingPage from './pages/LandingPage';
+import { clearAuthToken, fetchCurrentUser, getAuthToken } from './services/authService';
 
-  return (
-    <div className={`w-[250px] border-r p-6 flex flex-col gap-8 backdrop-blur-md transition-colors duration-300 ${isDarkMode ? 'border-slate-800 bg-slate-950/50' : 'border-slate-200 bg-white/50'}`}>
-      {/* Logo */}
-      <div className="flex items-center gap-2 mb-2">
-        <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${isDarkMode ? 'from-slate-500 to-slate-600' : 'from-blue-400 to-blue-500'}`}></div>
-        <span className={`text-sm font-semibold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>Uni Connect</span>
+function AuthRequired({ authLoading, user }) {
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-50 dark:bg-slate-900">
+        <div className="text-slate-600 dark:text-slate-300">Checking authentication...</div>
       </div>
+    );
+  }
 
-      {/* Navigation */}
-      <div>
-        <div className={`px-3 text-xs uppercase tracking-widest font-medium mb-3 ${isDarkMode ? 'text-slate-500' : 'text-slate-600'}`}>
-          Navigation
-        </div>
-        <nav className="space-y-1">
-          {menuItems.map(item => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium no-underline transition-all duration-200 ${
-                  isActive
-                    ? isDarkMode ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-950'
-                    : isDarkMode ? 'text-slate-400 hover:text-slate-300 hover:bg-slate-800/50' : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100'
-                }`}
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
 
-      {/* Theme Toggle - Bottom */}
-      <div className={`mt-auto pt-6 border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`}>
-        <button
-          onClick={toggleTheme}
-          className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg font-medium transition-all duration-200 ${
-            isDarkMode
-              ? 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-              : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
-          }`}
-        >
-          {isDarkMode ? (
-            <>
-              <Sun className="w-4 h-4" />
-              <span className="text-sm">Light Mode</span>
-            </>
-          ) : (
-            <>
-              <Moon className="w-4 h-4" />
-              <span className="text-sm">Dark Mode</span>
-            </>
-          )}
-        </button>
-      </div>
-    </div>
-  );
+  return <Outlet />;
+}
+
+function ProfileCompleteRequired({ user }) {
+  if (user && !user.profileCompleted) {
+    return <Navigate to="/profile-setup" replace />;
+  }
+
+  return <Outlet />;
+}
+
+function ProfileIncompleteOnly({ user }) {
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.profileCompleted) {
+    return <Navigate to="/home" replace />;
+  }
+
+  return <Outlet />;
 }
 
 function AppContent() {
-  const { isDarkMode } = useTheme();
+  const navigate = useNavigate();
+  const [projectId, setProjectId] = React.useState(null);
+  const [user, setUser] = React.useState(null);
+  const [authLoading, setAuthLoading] = React.useState(true);
+  const [loading, setLoading] = React.useState(true);
+
+  const handleLogout = React.useCallback(() => {
+    clearAuthToken();
+    setUser(null);
+    navigate('/', { replace: true });
+  }, [navigate]);
+
+  // Initialize backend detection first on mount
+  React.useEffect(() => {
+    const initBackend = async () => {
+      try {
+        await detectBackendBaseUrl();
+        console.log('✅ Backend initialized');
+      } catch (err) {
+        console.warn('⚠️ Backend detection failed:', err);
+      }
+    };
+
+    initBackend();
+  }, []);
+
+  React.useEffect(() => {
+    const initAuth = async () => {
+      setAuthLoading(true);
+      const token = getAuthToken();
+
+      if (!token) {
+        setUser(null);
+        setAuthLoading(false);
+        return;
+      }
+
+      try {
+        const me = await fetchCurrentUser(token);
+        setUser(me);
+      } catch (err) {
+        clearAuthToken();
+        setUser(null);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    initAuth();
+  }, []);
+
+  // Load first project from backend on mount
+  React.useEffect(() => {
+    const loadFirstProject = async () => {
+      try {
+        let response = await fetch(`${getApiBaseUrl()}/projects`);
+        if (!response.ok) {
+          await detectBackendBaseUrl();
+          response = await fetch(`${getApiBaseUrl()}/projects`);
+        }
+        
+        if (response.ok) {
+          const data = await response.json();
+          const projects = data.data || data.projects || (data._id ? [data] : []);
+          
+          if (projects.length > 0) {
+            setProjectId(projects[0]._id);
+            localStorage.setItem('projectId', projects[0]._id);
+          } else {
+            setProjectId(null);
+          }
+        } else {
+          setProjectId(null);
+        }
+      } catch (err) {
+        console.warn('Could not load projects:', err.message);
+        // Try to use saved projectId from localStorage
+        const savedId = localStorage.getItem('projectId');
+        if (savedId) setProjectId(savedId);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFirstProject();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-50 dark:bg-slate-900">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-400">Loading application...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <Router>
-      <div className={`flex min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-gradient-to-br from-slate-950 via-slate-950 to-slate-900' : 'bg-gradient-to-br from-slate-50 to-slate-100'}`}>
-        <Sidebar />
-        <main className="flex-1 py-8 px-12 flex flex-col h-screen overflow-y-auto transition-colors duration-300">
-          <Routes>
-            <Route path="/" element={<GroupsDashboard />} />
-            <Route path="/groups" element={<GroupsDashboard />} />
-            <Route path="/create-group" element={<CreateGroupPage />} />
-            <Route path="/group/:id" element={<GroupDetailsPage />} />
-            <Route path="/requests" element={<RequestsPage />} />
-            <Route path="/smart-hub" element={<SmartRequestHub />} />
-            <Route path="/recommendations" element={<RecommendationsPage />} />
-          </Routes>
-        </main>
-      </div>
-      <ChatBot />
-    </Router>
+    <>
+      <Routes>
+        {/* Public Landing Page - MAIN ENTRY POINT */}
+        {/* Authenticated users are redirected to dashboard */}
+        <Route
+          path="/"
+          element={user ? <Navigate to="/dashboard/home" replace /> : <LandingPage />}
+        />
+        
+        {/* Auth Routes - Public */}
+        <Route
+          path="/login"
+          element={user ? <Navigate to={user.profileCompleted ? '/dashboard' : '/profile-setup'} replace /> : <LoginPage onAuthSuccess={setUser} />}
+        />
+        <Route
+          path="/register"
+          element={user ? <Navigate to={user.profileCompleted ? '/dashboard' : '/profile-setup'} replace /> : <RegisterPage onAuthSuccess={setUser} />}
+        />
+
+        {/* Protected Routes */}
+        <Route element={<AuthRequired authLoading={authLoading} user={user} />}>
+          <Route element={<ProfileIncompleteOnly user={user} />}>
+            <Route path="/profile-setup" element={<ProfileSetupPage onProfileUpdated={setUser} />} />
+          </Route>
+
+          <Route element={<ProfileCompleteRequired user={user} />}>
+            <Route path="/dashboard" element={<MainLayout user={user} onLogout={handleLogout} />}>
+              <Route index element={<Navigate to="home" replace />} />
+              <Route path="home" element={<PersonalizedHomePage user={user} />} />
+              <Route path="groups" element={<GroupsDashboard />} />
+              <Route path="create-group" element={<CreateGroupPage />} />
+              <Route path="group/:id" element={<GroupDetailsPage />} />
+              <Route path="requests" element={<RequestsPage />} />
+              <Route path="smart-hub" element={<SmartRequestHub />} />
+              <Route path="recommendations" element={<RecommendationsPage />} />
+              <Route path="feedback" element={<FeedbackPage user={user} />} />
+
+              {/* Main Branch Routes */}
+              <Route path="profile" element={<UserProfilePage user={user} />} />
+              <Route path="chat" element={<GroupChat />} />
+
+              {/* Added Extra Pages */}
+              <Route path="add-project" element={<AddProject setProjectId={setProjectId} />} />
+              <Route path="project-dashboard" element={<ProjectDashboard projectId={projectId} />} />
+              <Route path="tasks" element={<TaskBoard projectId={projectId} />} />
+              <Route path="tasks/:taskId" element={<TaskDetails />} />
+            </Route>
+          </Route>
+        </Route>
+
+        {/* Fallback - redirect to landing page */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      {user && user.profileCompleted && <ChatBot />}
+    </>
   );
 }
 
 function App() {
   return (
     <ThemeProvider>
-      <AppContent />
+      <Router>
+        <AppContent />
+      </Router>
     </ThemeProvider>
   );
 }

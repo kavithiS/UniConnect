@@ -14,6 +14,9 @@ import {
   FaFile,
   FaDownload,
 } from "react-icons/fa";
+import { getBackendBaseUrl } from "../../utils/backendUrl";
+
+const FILE_BASE_URL = getBackendBaseUrl();
 
 const MessageItem = ({
   message,
@@ -424,14 +427,14 @@ const MessageItem = ({
                 if (isImageFile) {
                   return (
                     <a
-                      href={`http://localhost:5000${message.fileUrl}`}
+                      href={`${FILE_BASE_URL}${message.fileUrl}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
                       title="Open full image"
                     >
                       <img
-                        src={`http://localhost:5000${message.fileUrl}`}
+                        src={`${FILE_BASE_URL}${message.fileUrl}`}
                         alt={message.fileName}
                         className="max-w-full rounded-lg max-h-48 cursor-pointer"
                       />
@@ -450,7 +453,7 @@ const MessageItem = ({
                         <audio
                           controls
                           preload="metadata"
-                          src={`http://localhost:5000${message.fileUrl}`}
+                          src={`${FILE_BASE_URL}${message.fileUrl}`}
                           className="w-full min-w-[320px] max-w-[480px]"
                         >
                           <track kind="captions" />
@@ -482,7 +485,7 @@ const MessageItem = ({
 
                 return (
                   <a
-                    href={`http://localhost:5000${message.fileUrl}`}
+                    href={`${FILE_BASE_URL}${message.fileUrl}`}
                     download={message.fileName}
                     onClick={(e) => e.stopPropagation()}
                     className={`flex items-center gap-3 p-3 rounded-lg max-w-xs transition-all hover:opacity-80 ${

@@ -1,13 +1,12 @@
 import axios from 'axios';
-
-const API_BASE = "http://localhost:5001";
+import { getBackendBaseUrl } from '../utils/backendUrl';
 
 const api = axios.create({
-  baseURL: API_BASE,
 });
 
 // Add token to requests if it exists
 api.interceptors.request.use((config) => {
+  config.baseURL = getBackendBaseUrl();
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

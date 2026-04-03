@@ -1,18 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Send, X, Minimize2, Maximize2, Sparkles, ArrowRight, Lightbulb, CheckCircle2, Users, Zap } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { useNavigate } from 'react-router-dom';
 import { chatAPI } from '../api/api';
 
 const ChatBot = () => {
   const { isDarkMode } = useTheme();
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const timeoutRef = useRef(null);
-  const [conversationContext, setConversationContext] = useState({
-    discussedTopics: [],
-    userIntent: null,
-    lastTopic: null
-  });
   
   const [messages, setMessages] = useState([
     {
@@ -55,161 +52,6 @@ const ChatBot = () => {
     };
   }, []);
 
-  // Enhanced Response System with Rich Message Types
-  const botResponses = {
-    group: {
-      responses: [
-        {
-          type: 'feature',
-          text: '📁 Groups - Collaboration Hub',
-          features: [
-            { icon: '👥', title: 'Invite Members', desc: 'Add people to your group' },
-            { icon: '🎯', title: 'Set Goals', desc: 'Define group objectives' },
-            { icon: '📋', title: 'Group Tasks', desc: 'Organize team work' },
-            { icon: '💬', title: 'Collaborate', desc: 'Work together seamlessly' }
-          ]
-        },
-        {
-          type: 'suggestion',
-          text: 'Want to create your first group?',
-          actions: [
-            { label: 'Create Group', action: 'create_group' },
-            { label: 'View Groups', action: 'view_groups' }
-          ]
-        }
-      ]
-    },
-    skill: {
-      responses: [
-        {
-          type: 'feature',
-          text: '⭐ Smart Skill Matching',
-          features: [
-            { icon: '🤖', title: 'AI Analysis', desc: 'Intelligent matching' },
-            { icon: '👥', title: 'Perfect Partners', desc: 'Find like minds' },
-            { icon: '📊', title: 'Analytics', desc: 'See compatibility' },
-            { icon: '🚀', title: 'Collaboration', desc: 'Start projects' }
-          ]
-        },
-        {
-          type: 'suggestion',
-          text: 'Ready to find your perfect match?',
-          actions: [
-            { label: 'View Recommendations', action: 'view_recommendations' },
-            { label: 'Explore Skills', action: 'explore_skills' }
-          ]
-        }
-      ]
-    },
-    request: {
-      responses: [
-        {
-          type: 'feature',
-          text: '📨 Requests & Partnerships',
-          features: [
-            { icon: '✉️', title: 'Send Request', desc: 'Reach out to others' },
-            { icon: '📬', title: 'Inbox', desc: 'Manage invitations' },
-            { icon: '✅', title: 'Accept/Decline', desc: 'Quick decisions' },
-            { icon: '🔔', title: 'Notifications', desc: 'Stay updated' }
-          ]
-        },
-        {
-          type: 'suggestion',
-          text: 'Start collaborating today!',
-          actions: [
-            { label: 'View Requests', action: 'view_requests' },
-            { label: 'Send Request', action: 'send_request' }
-          ]
-        }
-      ]
-    },
-    task: {
-      responses: [
-        {
-          type: 'feature',
-          text: '✅ Task Management',
-          features: [
-            { icon: '📝', title: 'Create Tasks', desc: 'Define work items' },
-            { icon: '⏰', title: 'Deadlines', desc: 'Set timeframes' },
-            { icon: '🎯', title: 'Priorities', desc: 'Focus on important' },
-            { icon: '📊', title: 'Track Progress', desc: 'Monitor completion' }
-          ]
-        },
-        {
-          type: 'suggestion',
-          text: 'Organize your work efficiently!',
-          actions: [
-            { label: 'View Tasks', action: 'view_tasks' },
-            { label: 'Create Task', action: 'create_task' }
-          ]
-        }
-      ]
-    },
-    project: {
-      responses: [
-        {
-          type: 'feature',
-          text: '🚀 Projects - Command Center',
-          features: [
-            { icon: '📋', title: 'Organize', desc: 'Centralize everything' },
-            { icon: '👥', title: 'Teams', desc: 'Manage members' },
-            { icon: '⚙️', title: 'Configure', desc: 'Custom settings' },
-            { icon: '📈', title: 'Track', desc: 'Monitor progress' }
-          ]
-        },
-        {
-          type: 'suggestion',
-          text: 'Launch your first project!',
-          actions: [
-            { label: 'View Projects', action: 'view_projects' },
-            { label: 'Create Project', action: 'create_project' }
-          ]
-        }
-      ]
-    }
-  };
-
-  // Intelligent Intent Detection
-  const detectIntent = (text) => {
-    const lowerText = text.toLowerCase();
-    
-    // Topic detection
-    if (lowerText.includes('group')) return 'group';
-    if (lowerText.includes('skill') || lowerText.includes('match') || lowerText.includes('recommend')) return 'skill';
-    if (lowerText.includes('request') || lowerText.includes('invite')) return 'request';
-    if (lowerText.includes('task')) return 'task';
-    if (lowerText.includes('project')) return 'project';
-    if (lowerText.includes('help') || lowerText.includes('?')) return 'help';
-    if (lowerText.includes('hi') || lowerText.includes('hello') || lowerText.includes('hey')) return 'greeting';
-    
-    return 'general';
-  };
-
-  // Get Smart Response Based on Context
-  const getSmartResponse = (text, discussedTopics = conversationContext.discussedTopics) => {
-    const intent = detectIntent(text);
-    const topic = intent;
-
-    if (botResponses[topic]) {
-      const responses = botResponses[topic].responses;
-      return responses[Math.floor(Math.random() * responses.length)];
-    }
-
-    // Smart default with suggestions for undiscussed topics
-    const undiscussed = ['group', 'skill', 'request', 'task', 'project'].filter(
-      t => !discussedTopics.includes(t)
-    );
-
-    return {
-      type: 'suggestion',
-      text: 'That\'s interesting! 🤔 Want to explore other amazing features?',
-      actions: undiscussed.slice(0, 3).map(t => ({
-        label: t.charAt(0).toUpperCase() + t.slice(1),
-        action: `learn_${t}`
-      }))
-    };
-  };
-
   const handleSendMessage = async (messageText = inputValue) => {
     const trimmedMessage = messageText.trim();
     if (!trimmedMessage) return;
@@ -228,31 +70,36 @@ const ChatBot = () => {
     setIsTyping(true);
 
     try {
-      // Build history for the AI, skipping the complex UI objects
-      const history = messages
-        .filter(m => m.type === 'user' || m.type === 'bot')
-        .map(m => ({ role: m.type, text: m.text }));
-
+      // Send message to backend for intelligent response
       const res = await chatAPI.sendMessage({
-        message: trimmedMessage,
-        history: history
+        message: trimmedMessage
       });
 
-      const aiResponseText = res.data?.data?.text || "I'm not sure how to respond to that.";
+      // Backend returns rich response object
+      const botResponse = res.data?.data;
 
-      setMessages(prev => [...prev, {
-        id: Date.now() + 1,
-        type: 'bot',
-        text: aiResponseText,
-        timestamp: new Date()
-      }]);
+      if (botResponse) {
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          ...botResponse,
+          type: botResponse.type || 'suggestion',
+          timestamp: new Date()
+        }]);
+      }
     } catch (err) {
-      console.error("AI Chat Error:", err);
-      // Fallback message if AI fails or no API key is supplied
+      console.error("Chat Error:", err);
+      
+      // Fallback response
       setMessages(prev => [...prev, {
         id: Date.now() + 1,
-        type: 'bot',
-        text: err.response?.data?.message || "Oops! My AI brain is currently offline. Please ensure GEMINI_API_KEY is configured in the backend.",
+        type: 'suggestion',
+        text: 'I\'m having trouble processing that. Try asking about:',
+        actions: [
+          { label: 'Groups', action: 'view_groups' },
+          { label: 'Skills', action: 'view_recommendations' },
+          { label: 'Requests', action: 'view_requests' },
+          { label: 'Tasks', action: 'view_tasks' }
+        ],
         timestamp: new Date()
       }]);
     } finally {
@@ -261,25 +108,46 @@ const ChatBot = () => {
   };
 
   const handleActionClick = (action) => {
+    // First, simulate user clicking a button by sending a message
     const actionMessages = {
-      create_group: '🎉 Let me help you create an amazing group!',
-      view_groups: '📁 Check out your groups and find new ones!',
-      view_recommendations: '⭐ Let\'s find your perfect collaboration partners!',
-      explore_skills: '🔍 Explore different skills and matches!',
-      view_requests: '📬 Let\'s check your requests and opportunities!',
-      send_request: '✉️ Ready to reach out to someone new?',
-      view_tasks: '✅ Organize your work and boost productivity!',
-      create_task: '📝 Create a task and stay on top of things!',
-      view_projects: '🚀 Manage your projects efficiently!',
-      create_project: '🎯 Start a new project today!',
-      learn_group: 'Tell me more about groups!',
-      learn_skill: 'Tell me about skill matching!',
-      learn_request: 'Tell me about requests!',
-      learn_task: 'Tell me about tasks!',
-      learn_project: 'Tell me about projects!'
+      view_groups: '📁 Show me the groups',
+      view_recommendations: '⭐ Find teammates by skills',
+      view_requests: '📨 View my requests',
+      view_tasks: '✅ Show my tasks',
+      view_projects: '🚀 View my projects',
+      create_group: '🎉 Create a new group',
+      create_task: '📝 Create a task',
+      create_project: '🎯 Create a project',
+      send_request: '✉️ Send a request'
     };
 
-    handleSendMessage(actionMessages[action] || '');
+    const message = actionMessages[action] || '';
+    if (message) {
+      handleSendMessage(message);
+    }
+
+    // Then navigate based on the action
+    const navigationMap = {
+      view_groups: '/groups',
+      view_recommendations: '/recommendations',
+      view_requests: '/requests',
+      view_tasks: '/taskboard',
+      view_projects: '/dashboard/projects',
+      create_group: '/create-group',
+      create_task: '/taskboard',
+      create_project: '/add-project',
+      send_request: '/requests'
+    };
+
+    const navPath = navigationMap[action];
+    if (navPath) {
+      // Small delay to show response first
+      setTimeout(() => {
+        navigate(navPath);
+        // Minimize chat so user can see the page
+        setIsMinimized(true);
+      }, 800);
+    }
   };
 
   if (!isOpen) {
@@ -296,7 +164,7 @@ const ChatBot = () => {
     );
   }
 
-  // Rich Message Renderer
+  // Rich Message Renderer with support for advanced response types
   const renderMessage = (message) => {
     switch (message.type) {
       case 'user':
@@ -321,17 +189,60 @@ const ChatBot = () => {
       case 'feature':
         return (
           <div key={message.id} className="flex justify-start animate-in fade-in slide-in-from-bottom-2">
-            <div className={`max-w-sm px-4 py-3 rounded-2xl rounded-bl-none ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-slate-100 border border-slate-300'}`} style={{ animation: 'slideIn 0.3s ease-out' }}>
-              <h3 className={`font-bold mb-3 text-sm ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{message.text}</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {message.features && message.features.map((feature, idx) => (
-                  <div key={idx} className={`p-3 rounded-lg ${isDarkMode ? 'bg-slate-700/50 hover:bg-slate-700' : 'bg-white hover:bg-slate-50'} transition-colors border ${isDarkMode ? 'border-slate-600' : 'border-slate-200'} cursor-pointer`}>
-                    <div className="text-xl mb-1">{feature.icon}</div>
-                    <p className={`text-xs font-semibold ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>{feature.title}</p>
-                    <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{feature.desc}</p>
-                  </div>
-                ))}
+            <div className={`max-w-sm rounded-2xl rounded-bl-none overflow-hidden ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-slate-100 border border-slate-300'}`} style={{ animation: 'slideIn 0.3s ease-out' }}>
+              <div className={`px-4 py-3 ${isDarkMode ? 'bg-gradient-to-r from-primary/20 to-accent/20 border-b border-slate-700' : 'bg-gradient-to-r from-primary/10 to-accent/10 border-b border-slate-300'}`}>
+                <h3 className={`font-bold text-sm ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{message.text}</h3>
               </div>
+              <div className="p-3 space-y-2">
+                {message.features && message.features.map((feature, idx) => {
+                  const actionMap = {
+                    'Groups': 'view_groups',
+                    'Browse Groups': 'view_groups',
+                    'Create Groups': 'view_groups',
+                    'Real-time Chat': 'view_groups',
+                    'Collaborate': 'view_groups',
+                    'Skills': 'view_recommendations',
+                    'Match Engine': 'view_recommendations',
+                    'Compatibility': 'view_recommendations',
+                    'Teammate Zoo': 'view_recommendations',
+                    'Instant Collab': 'view_recommendations',
+                    'Requests': 'view_requests',
+                    'Compose Request': 'view_requests',
+                    'Inbox': 'view_requests',
+                    'Respond': 'view_requests',
+                    'Track All': 'view_requests',
+                    'Tasks': 'view_tasks',
+                    'Create Tasks': 'view_tasks',
+                    'Set Deadlines': 'view_tasks',
+                    'Prioritize': 'view_tasks',
+                    'Track Progress': 'view_tasks',
+                    'Projects': 'view_projects',
+                    'Organize All': 'view_projects',
+                    'Manage Teams': 'view_projects',
+                    'Configure': 'view_projects',
+                    'Track': 'view_projects'
+                  };
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => handleActionClick(actionMap[feature.title] || 'view_groups')}
+                      className={`w-full p-3 rounded-lg flex gap-3 transition-all border text-left cursor-pointer group/feature ${isDarkMode ? 'bg-slate-700/30 hover:bg-slate-700/60 border-slate-600 hover:border-primary/50' : 'bg-white/50 hover:bg-white border-slate-300 hover:border-primary/30'}`}
+                    >
+                      <div className="text-xl flex-shrink-0">{feature.icon}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs font-bold ${isDarkMode ? 'text-slate-100 group-hover/feature:text-primary' : 'text-slate-900 group-hover/feature:text-primary'}`}>{feature.title}</p>
+                        <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400 group-hover/feature:text-slate-300' : 'text-slate-600 group-hover/feature:text-slate-700'}`}>{feature.desc}</p>
+                      </div>
+                      <ArrowRight size={14} className={`flex-shrink-0 mt-1 group-hover/feature:translate-x-1 transition-transform ${isDarkMode ? 'text-slate-500 group-hover/feature:text-primary' : 'text-slate-400 group-hover/feature:text-primary'}`} />
+                    </button>
+                  );
+                })}
+              </div>
+              {message.nextAction && (
+                <div className={`px-4 py-2 text-xs italic ${isDarkMode ? 'text-slate-400 border-t border-slate-700' : 'text-slate-600 border-t border-slate-300'}`}>
+                  💡 {message.nextAction}
+                </div>
+              )}
             </div>
           </div>
         );
@@ -341,6 +252,18 @@ const ChatBot = () => {
           <div key={message.id} className="flex justify-start animate-in fade-in slide-in-from-bottom-2">
             <div className={`max-w-sm px-4 py-3 rounded-2xl rounded-bl-none ${isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-slate-100 border border-slate-300'}`} style={{ animation: 'slideIn 0.3s ease-out' }}>
               <p className={`font-semibold text-sm mb-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{message.text}</p>
+              
+              {/* Render items list if available (for help responses) */}
+              {message.items && (
+                <div className={`mb-3 pb-3 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-300'} space-y-1`}>
+                  {message.items.map((item, idx) => (
+                    <p key={idx} className={`text-xs leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                      {item}
+                    </p>
+                  ))}
+                </div>
+              )}
+              
               <div className="space-y-2">
                 {message.actions && message.actions.map((action, idx) => (
                   <button
@@ -352,11 +275,17 @@ const ChatBot = () => {
                         : 'bg-gradient-to-r from-primary/20 to-accent/20 hover:from-primary/40 hover:to-accent/40 text-blue-700 border border-primary/30'
                     }`}
                   >
-                    <span>{action.label}</span>
-                    <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
+                    <span className="text-left flex-1">{action.label}</span>
+                    <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform flex-shrink-0" />
                   </button>
                 ))}
               </div>
+              
+              {message.confidence && (
+                <p className={`text-xs mt-2 pt-2 border-t ${isDarkMode ? 'text-slate-500 border-slate-700' : 'text-slate-500 border-slate-300'}`}>
+                  ✓ Confidence: {message.confidence}%
+                </p>
+              )}
             </div>
           </div>
         );
@@ -462,7 +391,7 @@ const ChatBot = () => {
               }`}
             />
             <button
-              onClick={handleSendMessage}
+              onClick={() => handleSendMessage()}
               disabled={!inputValue.trim() || isTyping}
               className="p-2.5 rounded-full bg-gradient-to-br from-primary to-accent text-white hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center"
               title="Send message"

@@ -7,17 +7,35 @@ const connectDB = async () => {
   try {
     console.log("Attempting MongoDB connection...");
 
-    // Try Atlas connection first if MONGO_URI is set
-    if (process.env.MONGO_URI && !process.env.USE_MEMORY_DB) {
+    // Try Atlas connection first if MONGODB_URI is set
+    const atlasUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+    if (atlasUri && !process.env.USE_MEMORY_DB) {
       try {
-        console.log("Trying MongoDB Atlas connection...");
-        const conn = await mongoose.connect(process.env.MONGO_URI, {
+        console.log("Trying MongoDB connection...");
+        const conn = await mongoose.connect(atlasUri, {
           serverSelectionTimeoutMS: 5000, // Fail fast if Atlas unavailable
         });
-        console.log(`✓ MongoDB Atlas Connected: ${conn.connection.host}`);
+        console.log(`✓ MongoDB Connected: ${conn.connection.host}`);
         return conn;
       } catch (atlasError) {
-        console.log("⚠ MongoDB Atlas connection failed:", atlasError.message);
+        console.log("⚠ MongoDB connection failed:", atlasError.message);
+        console.log("→ Falling back to other options...\n");
+      }
+    }
+
+    // Try local MongoDB (persistent) before using memory DB
+    if (!process.env.USE_MEMORY_DB) {
+      try {
+        const localUri = process.env.LOCAL_MONGO_URI || "mongodb://127.0.0.1:27017/uniconnect";
+        console.log(`Trying local MongoDB connection: ${localUri}`);
+        const conn = await mongoose.connect(localUri, {
+          serverSelectionTimeoutMS: 5000,
+        });
+        console.log(`✓ Local MongoDB Connected: ${conn.connection.host}`);
+        console.log("→ Using persistent local database\n");
+        return conn;
+      } catch (localError) {
+        console.log("⚠ Local MongoDB connection failed:", localError.message);
         console.log("→ Falling back to in-memory MongoDB for development...\n");
       }
     }

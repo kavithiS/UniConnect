@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { groupAPI } from '../api/api';
 import { Plus, Users, Layers, Activity, ChevronRight, Trash2, Edit2, X } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
@@ -133,99 +134,57 @@ const GroupsDashboard = () => {
   };
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-gradient-to-br from-slate-950 via-slate-950 to-slate-900' : 'bg-gradient-to-br from-slate-50 to-slate-100'}`}>
-      {/* Header */}
-      <div className={`px-8 pt-8 pb-6 border-b ${isDarkMode ? 'border-slate-800/50' : 'border-slate-200'}`}>
-        <h1 className={`text-3xl font-semibold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-950'} mb-2`}>Groups Dashboard</h1>
-        <p className={`text-sm ${isDarkMode ? 'text-slate-500' : 'text-slate-600'}`}>Manage and organize your collaboration groups</p>
-      </div>
-
-      <div className="px-8 py-8">
-        {/* Stats Cards - Bento Box Style */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10">
-          {/* Total Groups */}
-          <div className="group bg-slate-900/50 border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-all duration-300">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <p className="text-slate-500 text-xs uppercase tracking-wider font-medium mb-3">Total Groups</p>
-                <p className="text-4xl font-semibold text-white">{stats.totalGroups}</p>
-              </div>
-              <Layers className="w-8 h-8 text-slate-700 group-hover:text-slate-600 transition" />
-            </div>
-          </div>
-
-          {/* Active Groups */}
-          <div className="group bg-slate-900/50 border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-all duration-300">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <p className="text-slate-500 text-xs uppercase tracking-wider font-medium mb-3">Active Groups</p>
-                <p className="text-4xl font-semibold text-white">{stats.activeGroups}</p>
-              </div>
-              <Activity className="w-8 h-8 text-slate-700 group-hover:text-slate-600 transition" />
-            </div>
-          </div>
-
-          {/* Total Members */}
-          <div className="group bg-slate-900/50 border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-all duration-300">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <p className="text-slate-500 text-xs uppercase tracking-wider font-medium mb-3">Total Members</p>
-                <p className="text-4xl font-semibold text-white">{stats.totalMembers}</p>
-              </div>
-              <Users className="w-8 h-8 text-slate-700 group-hover:text-slate-600 transition" />
-            </div>
-          </div>
-
-          {/* Avg Group Size */}
-          <div className="group bg-slate-900/50 border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-all duration-300">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <p className="text-slate-500 text-xs uppercase tracking-wider font-medium mb-3">Avg Group Size</p>
-                <p className="text-4xl font-semibold text-white">{stats.averageGroupSize}</p>
-              </div>
-              <Users className="w-8 h-8 text-slate-700 group-hover:text-slate-600 transition" />
-            </div>
+    <div className={`min-h-screen ${isDarkMode ? 'bg-gradient-to-br from-slate-950 via-slate-950 to-slate-900' : 'bg-gradient-to-br from-white via-slate-50 to-slate-100'} p-8`}>
+      <div className="max-w-7xl mx-auto">
+        {/* Header Section */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-950'} mb-2`}>Groups</h1>
+            <p className={isDarkMode ? 'text-slate-400' : 'text-slate-600'}>Manage your student groups</p>
           </div>
         </div>
 
         {/* Groups Table */}
-        <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
+        <div className={`${isDarkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-slate-200'} border rounded-xl overflow-hidden`}>
           {/* Table Header */}
-          <div className="px-8 py-6 flex justify-between items-center border-b border-slate-800">
-            <h2 className="text-lg font-semibold text-white">Groups</h2>
-            <a href="/create-group" className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-slate-700 to-slate-600 hover:from-slate-600 hover:to-slate-500 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:shadow-slate-500/10">
+          <div className={`px-8 py-6 flex justify-between items-center border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`}>
+            <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>Groups</h2>
+            <Link
+              to="/dashboard/create-group"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-slate-700 to-slate-600 hover:from-slate-600 hover:to-slate-500 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:shadow-slate-500/10"
+            >
               <Plus className="w-4 h-4" />
               New Group
-            </a>
+            </Link>
           </div>
 
           {/* Table Content */}
           {loading ? (
-            <div className="px-8 py-12 text-slate-500 text-center">
+            <div className={`px-8 py-12 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} text-center`}>
               <div className="inline-block animate-spin">
-                <div className="w-5 h-5 border-2 border-slate-700 border-t-slate-400 rounded-full"></div>
+                <div className={`w-5 h-5 border-2 ${isDarkMode ? 'border-slate-700 border-t-slate-400' : 'border-slate-300 border-t-slate-600'} rounded-full`}></div>
               </div>
               <p className="mt-3">Loading groups...</p>
             </div>
           ) : groups.length === 0 ? (
-            <div className="px-8 py-16 text-slate-500 text-center">
+            <div className={`px-8 py-16 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} text-center`}>
               <Layers className="w-10 h-10 mx-auto mb-3 opacity-50" />
               <p>No groups yet. Create one to get started!</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-800/50">
+                <thead className={isDarkMode ? 'bg-slate-800/50' : 'bg-slate-100'}>
                   <tr>
-                    <th className="px-8 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Title</th>
-                    <th className="px-8 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Group ID</th>
-                    <th className="px-8 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Members</th>
-                    <th className="px-8 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Skills</th>
-                    <th className="px-8 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
-                    <th className="px-8 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Actions</th>
+                    <th className={`px-8 py-4 text-left text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-600'} uppercase tracking-wider`}>Title</th>
+                    <th className={`px-8 py-4 text-left text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-600'} uppercase tracking-wider`}>Group ID</th>
+                    <th className={`px-8 py-4 text-left text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-600'} uppercase tracking-wider`}>Members</th>
+                    <th className={`px-8 py-4 text-left text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-600'} uppercase tracking-wider`}>Skills</th>
+                    <th className={`px-8 py-4 text-left text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-600'} uppercase tracking-wider`}>Status</th>
+                    <th className={`px-8 py-4 text-left text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-600'} uppercase tracking-wider`}>Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800">
+                <tbody className={`divide-y ${isDarkMode ? 'divide-slate-800' : 'divide-slate-200'}`}>
                   {groups.map((group) => {
                     const fallbackId = group._id ? group._id.slice(-6).toUpperCase() : 'N/A';
                     const rawCode = group.groupCode || fallbackId;
@@ -235,25 +194,29 @@ const GroupsDashboard = () => {
                       : `IT100-${normalizedCode.replace(/^IT100-/, '')}`;
                     
                     return (
-                      <tr key={group._id} className="hover:bg-slate-800/30 transition-colors duration-150">
-                        <td className="px-8 py-6 text-white font-semibold">{group.title}</td>
+                      <tr key={group._id} className={`${isDarkMode ? 'hover:bg-slate-800/30' : 'hover:bg-slate-50'} transition-colors duration-150`}>
+                        <td className={`px-8 py-6 font-semibold ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>{group.title}</td>
                         <td className="px-8 py-6">
-                          <span className="font-mono text-sm text-slate-400 bg-slate-800/40 px-3 py-1.5 rounded">
+                          <span className={`font-mono text-sm ${isDarkMode ? 'text-slate-400 bg-slate-800/40' : 'text-slate-600 bg-slate-200/50'} px-3 py-1.5 rounded`}>
                             {displayId}
                           </span>
                         </td>
-                        <td className="px-8 py-6 text-slate-400 text-sm">
+                        <td className={`px-8 py-6 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'} text-sm`}>
                           {group.members.length}/{group.memberLimit}
                         </td>
-                        <td className="px-8 py-6 text-slate-400 text-sm">
+                        <td className={`px-8 py-6 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'} text-sm`}>
                           <div className="flex gap-2 flex-wrap max-w-xs">
                             {group.requiredSkills.slice(0, 2).map(skill => (
-                              <span key={skill} className="border border-slate-700 text-slate-300 px-2.5 py-1 rounded text-xs font-medium hover:border-slate-600 transition">
+                              <span key={skill} className={`border px-2.5 py-1 rounded text-xs font-medium transition ${
+                                isDarkMode
+                                  ? 'border-slate-700 text-slate-300 hover:border-slate-600'
+                                  : 'border-slate-400 text-slate-700 hover:border-slate-300'
+                              }`}>
                                 {skill}
                               </span>
                             ))}
                             {group.requiredSkills.length > 2 && (
-                              <span className="text-slate-500 text-xs font-medium">+{group.requiredSkills.length - 2}</span>
+                              <span className={`text-xs font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>+{group.requiredSkills.length - 2}</span>
                             )}
                           </div>
                         </td>
@@ -266,30 +229,33 @@ const GroupsDashboard = () => {
                               <div className="w-2 h-2 rounded-full bg-amber-500"></div>
                             )}
                             {group.status === 'archived' && (
-                              <div className="w-2 h-2 rounded-full bg-slate-600"></div>
+                              <div className={`w-2 h-2 rounded-full ${isDarkMode ? 'bg-slate-600' : 'bg-slate-400'}`}></div>
                             )}
-                            <span className="text-slate-400 text-sm">{group.status}</span>
+                            <span className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{group.status}</span>
                           </div>
                         </td>
                         <td className="px-8 py-6">
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => handleEditClick(group)}
-                              className="text-slate-400 hover:text-blue-400 transition-colors p-2 -m-2 inline-flex items-center gap-1"
+                              className={`transition-colors p-2 -m-2 inline-flex items-center gap-1 ${isDarkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-500 hover:text-blue-600'}`}
                               title="Edit group"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteClick(group)}
-                              className="text-slate-400 hover:text-red-400 transition-colors p-2 -m-2 inline-flex items-center gap-1"
+                              className={`transition-colors p-2 -m-2 inline-flex items-center gap-1 ${isDarkMode ? 'text-slate-400 hover:text-red-400' : 'text-slate-500 hover:text-red-600'}`}
                               title="Delete group"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
-                            <a href={`/group/${group._id}`} className="text-slate-400 hover:text-white transition-colors p-2 -m-2 inline-flex items-center gap-1">
+                            <Link
+                              to={`/dashboard/group/${group._id}`}
+                              className={`transition-colors p-2 -m-2 inline-flex items-center gap-1 ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
+                            >
                               <ChevronRight className="w-4 h-4" />
-                            </a>
+                            </Link>
                           </div>
                         </td>
                       </tr>
@@ -310,9 +276,9 @@ const GroupsDashboard = () => {
               <h2 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Edit Group</h2>
               <button
                 onClick={() => setShowEditModal(false)}
-                className={`p-2 hover:bg-slate-700/50 rounded transition}`}
+                className={`p-2 rounded transition ${isDarkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-100'}`}
               >
-                <X className="w-5 h-5 text-slate-400" />
+                <X className={`w-5 h-5 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`} />
               </button>
             </div>
 
@@ -333,7 +299,7 @@ const GroupsDashboard = () => {
                     name="title"
                     value={editFormData.title}
                     onChange={handleEditChange}
-                    className={`w-full rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-100 border-slate-300 text-slate-900'}`}
+                    className={`w-full rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'}`}
                     required
                   />
                 </div>
@@ -347,7 +313,7 @@ const GroupsDashboard = () => {
                     value={editFormData.description}
                     onChange={handleEditChange}
                     rows="5"
-                    className={`w-full rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition resize-none border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-100 border-slate-300 text-slate-900'}`}
+                    className={`w-full rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition resize-none border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'}`}
                     required
                   />
                 </div>
@@ -362,7 +328,7 @@ const GroupsDashboard = () => {
                     value={editFormData.requiredSkills}
                     onChange={handleEditChange}
                     placeholder="e.g., React, Node.js, MongoDB (comma-separated)"
-                    className={`w-full rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-100 border-slate-300 text-slate-900'}`}
+                    className={`w-full rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'}`}
                   />
                 </div>
 
@@ -378,7 +344,7 @@ const GroupsDashboard = () => {
                       onChange={handleEditChange}
                       min="1"
                       max="100"
-                      className={`w-full rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-100 border-slate-300 text-slate-900'}`}
+                      className={`w-full rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'}`}
                       required
                     />
                   </div>
@@ -391,7 +357,7 @@ const GroupsDashboard = () => {
                       name="status"
                       value={editFormData.status}
                       onChange={handleEditChange}
-                      className={`w-full rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-100 border-slate-300 text-slate-900'}`}
+                      className={`w-full rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 transition border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
                     >
                       <option value="active">Active</option>
                       <option value="closed">Closed</option>
@@ -444,10 +410,10 @@ const GroupsDashboard = () => {
                   {deleteError}
                 </div>
               )}
-              <p className={`mb-2 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+              <p className={`mb-2 ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
                 Are you sure you want to delete <strong>{deleteConfirm.title}</strong>?
               </p>
-              <p className={`text-sm ${isDarkMode ? 'text-slate-500' : 'text-slate-500'}`}>
+              <p className={`text-sm ${isDarkMode ? 'text-slate-500' : 'text-slate-600'}`}>
                 This action will archive the group and cannot be undone immediately.
               </p>
             </div>

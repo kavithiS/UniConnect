@@ -1,13 +1,14 @@
 import axios from "axios";
+import { getApiBaseUrl } from "../utils/backendUrl";
 
-const API_BASE_URL = "http://localhost:5000/api";
+const getStudentsApiBase = () => `${getApiBaseUrl()}/students`;
 
 const studentService = {
   // Initialize profile (create if doesn't exist)
   initializeProfile: async (userId, firstName, lastName, email) => {
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/students/init-profile`,
+        `${getStudentsApiBase()}/init-profile`,
         {
           userId,
           firstName,
@@ -24,7 +25,7 @@ const studentService = {
   // Get student profile
   getProfile: async (userId) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/students/${userId}`);
+      const response = await axios.get(`${getStudentsApiBase()}/${userId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -35,7 +36,7 @@ const studentService = {
   updateProfile: async (userId, profileData) => {
     try {
       const response = await axios.put(
-        `${API_BASE_URL}/students/update/${userId}`,
+        `${getStudentsApiBase()}/update/${userId}`,
         profileData,
       );
       return response.data;
@@ -47,7 +48,7 @@ const studentService = {
   // Delete student profile
   deleteProfile: async (userId) => {
     try {
-      const response = await axios.delete(`${API_BASE_URL}/students/${userId}`);
+      const response = await axios.delete(`${getStudentsApiBase()}/${userId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -57,7 +58,7 @@ const studentService = {
   // Get all students
   getAllStudents: async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/students`);
+      const response = await axios.get(`${getStudentsApiBase()}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

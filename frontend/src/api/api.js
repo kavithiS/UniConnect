@@ -1,13 +1,16 @@
 import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:5001/api';
+import { getApiBaseUrl } from '../utils/backendUrl';
 
 // Create axios instance with base URL
 const api = axios.create({
-  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json'
   }
+});
+
+api.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl();
+  return config;
 });
 
 // ============ GROUP ENDPOINTS ============
@@ -60,7 +63,7 @@ export const recommendationAPI = {
 
 // ============ AI CHAT ENDPOINT ============
 export const chatAPI = {
-  sendMessage: (payload) => api.post('/chat/message', payload)
+  sendMessage: (payload) => api.post('/aichat/message', payload)
 };
 
 export default api;

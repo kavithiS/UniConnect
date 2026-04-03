@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { X } from 'lucide-react';
+import { getApiBaseUrl } from '../utils/backendUrl';
 
-const CreateTaskModal = ({ projectId, onClose, onTaskCreated }) => {
+const CreateTaskModal = ({ projectId, projects = [], projectMembers = [], onProjectChange, onClose, onTaskCreated }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -11,6 +12,7 @@ const CreateTaskModal = ({ projectId, onClose, onTaskCreated }) => {
     dueDate: ''
   });
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -18,9 +20,16 @@ const CreateTaskModal = ({ projectId, onClose, onTaskCreated }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!projectId) {
+      setSubmitError('Please select a project before creating a task.');
+      return;
+    }
+
     setLoading(true);
+    setSubmitError('');
     try {
-      await axios.post('http://localhost:5001/api/tasks', {
+      await axios.post(`${getApiBaseUrl()}/tasks`, {
         ...formData,
         projectId
       });
@@ -28,6 +37,7 @@ const CreateTaskModal = ({ projectId, onClose, onTaskCreated }) => {
       onClose();
     } catch (err) {
       console.error(err);
+      setSubmitError(err.response?.data?.message || 'Failed to create task. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -45,6 +55,26 @@ const CreateTaskModal = ({ projectId, onClose, onTaskCreated }) => {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-5">
+            <label className="block mb-2 font-medium text-slate-400">Project</label>
+            <select
+              required
+              className="form-control"
+              value={projectId || ''}
+              onChange={(e) => onProjectChange?.(e.target.value)}
+              disabled={loading || projects.length === 0}
+            >
+              <option value="" className="bg-slate-800">
+                {projects.length === 0 ? 'No projects available' : 'Select a project'}
+              </option>
+              {projects.map((project) => (
+                <option key={project._id} value={project._id} className="bg-slate-800">
+                  {project.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mb-5">
             <label className="block mb-2 font-medium text-slate-400">Task Title</label>
             <input required type="text" name="title" className="form-control" value={formData.title} onChange={handleChange} placeholder="e.g. Design Login Page" />
           </div>
@@ -57,7 +87,30 @@ const CreateTaskModal = ({ projectId, onClose, onTaskCreated }) => {
           <div className="grid grid-cols-2 gap-4 mb-5">
             <div>
               <label className="block mb-2 font-medium text-slate-400">Assign To</label>
-              <input type="text" name="assignedTo" className="form-control" value={formData.assignedTo} onChange={handleChange} placeholder="Member name" />
+              {projectMembers.length > 0 ? (
+                <select
+                  name="assignedTo"
+                  className="form-control"
+                  value={formData.assignedTo}
+                  onChange={handleChange}
+                >
+                  <option value="" className="bg-slate-800">Select member</option>
+                  {projectMembers.map((member) => (
+                    <option key={member} value={member} className="bg-slate-800">
+                      {member}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  name="assignedTo"
+                  className="form-control"
+                  value={formData.assignedTo}
+                  onChange={handleChange}
+                  placeholder="Member name"
+                />
+              )}
             </div>
 
             <div>
@@ -74,6 +127,10 @@ const CreateTaskModal = ({ projectId, onClose, onTaskCreated }) => {
             <label className="block mb-2 font-medium text-slate-400">Due Date</label>
             <input type="date" name="dueDate" className="form-control" value={formData.dueDate} onChange={handleChange} />
           </div>
+
+          {submitError && (
+            <p className="mt-2 text-sm text-red-400">{submitError}</p>
+          )}
 
           <div className="flex justify-end gap-4 mt-8">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>

@@ -29,7 +29,27 @@ export default {
       },
       backgroundImage: {
         'radial-gradient-custom': 'radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%), radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.15), transparent 25%)',
-      }
+      },
+      animation: {
+        blob: 'blob 7s infinite',
+      },
+      keyframes: {
+        blob: {
+          '0%, 100%': {
+            transform: 'translate(0, 0) scale(1)',
+          },
+          '33%': {
+            transform: 'translate(30px, -50px) scale(1.1)',
+          },
+          '66%': {
+            transform: 'translate(-20px, 20px) scale(0.9)',
+          },
+        },
+      },
+      animationDelay: {
+        '2000': '2000ms',
+        '4000': '4000ms',
+      },
     },
   },
   plugins: [],

@@ -67,7 +67,9 @@ const CreateGroupPage = () => {
       };
 
       const response = await groupAPI.create(payload);
-      const rawGroupId = response.data.data.groupCode;
+      const createdGroup = response.data.data;
+      const groupObjectId = createdGroup._id;
+      const rawGroupId = createdGroup.groupCode;
       const formattedGroupId = rawGroupId?.startsWith('IT100-')
         ? rawGroupId
         : rawGroupId

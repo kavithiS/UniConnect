@@ -1,8 +1,68 @@
+const mongoose = require('mongoose');
 const JoinRequest = require('../models/JoinRequest');
 const Invitation = require('../models/Invitation');
 const Group = require('../models/Group');
 const User = require('../models/User');
+const Student = require('../models/Student');
 const { getDetailedMatchAnalysis } = require('../services/matchingService');
+
+const isMember = (group, userId) =>
+  Array.isArray(group?.members) && group.members.some((memberId) => memberId?.toString() === userId?.toString());
+
+const isObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
+
+const resolveUserProfile = async (id) => {
+  let user = null;
+  let student = null;
+
+  if (isObjectId(id)) {
+    user = await User.findById(id);
+    student = await Student.findById(id);
+  } else {
+    // Backward compatibility for legacy IDs like "S001"
+    student = await Student.findOne({ userId: id });
+    user = await User.findOne({ userId: id });
+  }
+
+  if (user) {
+    return {
+      profile: user,
+      payload: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        skills: user.skills || [],
+      },
+    };
+  }
+
+  if (student) {
+    return {
+      profile: student,
+      payload: {
+        _id: student._id,
+        name: `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.userId,
+        email: student.email,
+        skills: student.skills || [],
+      },
+    };
+  }
+
+  return null;
+};
+
+const resolveObjectIdFromAnyUserId = async (id) => {
+  if (!id) return null;
+  if (isObjectId(id)) return id;
+
+  const student = await Student.findOne({ userId: id }).select('_id');
+  if (student?._id) return student._id.toString();
+
+  const user = await User.findOne({ userId: id }).select('_id');
+  if (user?._id) return user._id.toString();
+
+  return null;
+};
 
 /**
  * UNIFIED REQUESTS API
@@ -50,14 +110,14 @@ exports.sendRequest = async (req, res) => {
       });
     }
 
-    const user = await User.findById(currentUserId);
-    if (!user) {
+    const resolvedCurrentUser = await resolveUserProfile(currentUserId);
+    if (!resolvedCurrentUser) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     if (requestType === 'join') {
       // Check if already member
-      if (group.members.includes(currentUserId)) {
+      if (isMember(group, currentUserId)) {
         return res.status(400).json({
           success: false,
           message: 'You are already a member of this group'
@@ -79,7 +139,7 @@ exports.sendRequest = async (req, res) => {
       }
 
       // Calculate skill match
-      const matchAnalysis = getDetailedMatchAnalysis(user.skills, group.requiredSkills);
+      const matchAnalysis = getDetailedMatchAnalysis(resolvedCurrentUser.payload.skills, group.requiredSkills || []);
 
       const newRequest = new JoinRequest({
         userId: currentUserId,
@@ -98,12 +158,15 @@ exports.sendRequest = async (req, res) => {
       return res.status(201).json({
         success: true,
         message: 'Join request sent successfully',
-        request: await newRequest.populate('userId', 'name email skills')
+        request: {
+          ...newRequest.toObject(),
+          userId: resolvedCurrentUser.payload,
+        }
       });
 
     } else if (requestType === 'invitation') {
       // Invitation: only group members can invite
-      if (!group.members.includes(currentUserId)) {
+      if (!isMember(group, currentUserId)) {
         return res.status(403).json({
           success: false,
           message: 'Only group members can send invitations'
@@ -117,12 +180,12 @@ exports.sendRequest = async (req, res) => {
         });
       }
 
-      const targetUser = await User.findById(toUserId);
-      if (!targetUser) {
+      const resolvedTargetUser = await resolveUserProfile(toUserId);
+      if (!resolvedTargetUser) {
         return res.status(404).json({ success: false, message: 'Target user not found' });
       }
 
-      if (group.members.includes(toUserId)) {
+      if (isMember(group, toUserId)) {
         return res.status(400).json({
           success: false,
           message: 'User is already a member of this group'
@@ -145,7 +208,7 @@ exports.sendRequest = async (req, res) => {
       }
 
       // Calculate skill match
-      const matchAnalysis = getDetailedMatchAnalysis(targetUser.skills, group.requiredSkills);
+      const matchAnalysis = getDetailedMatchAnalysis(resolvedTargetUser.payload.skills, group.requiredSkills || []);
 
       const newInvitation = new Invitation({
         from: currentUserId,
@@ -195,14 +258,19 @@ exports.sendRequest = async (req, res) => {
  */
 exports.getReceivedRequests = async (req, res) => {
   try {
-    const currentUserId = req.user?.id || req.query.userId;
+    const currentUserRawId = req.user?.id || req.query.userId;
     const { status } = req.query;
 
-    if (!currentUserId) {
+    if (!currentUserRawId) {
       return res.status(400).json({
         success: false,
         message: 'User ID is required'
       });
+    }
+
+    const currentUserId = await resolveObjectIdFromAnyUserId(currentUserRawId);
+    if (!currentUserId) {
+      return res.status(400).json({ success: false, message: 'Invalid userId format' });
     }
 
     // Find all groups created by this user
@@ -252,14 +320,19 @@ exports.getReceivedRequests = async (req, res) => {
  */
 exports.getSentRequests = async (req, res) => {
   try {
-    const currentUserId = req.user?.id || req.query.userId;
+    const currentUserRawId = req.user?.id || req.query.userId;
     const { status } = req.query;
 
-    if (!currentUserId) {
+    if (!currentUserRawId) {
       return res.status(400).json({
         success: false,
         message: 'User ID is required'
       });
+    }
+
+    const currentUserId = await resolveObjectIdFromAnyUserId(currentUserRawId);
+    if (!currentUserId) {
+      return res.status(400).json({ success: false, message: 'Invalid userId format' });
     }
 
     let query = { userId: currentUserId, requestType: 'student-request' };
@@ -275,34 +348,38 @@ exports.getSentRequests = async (req, res) => {
     // Also get invitations sent by this user
     const invitations = await Invitation.find({ from: currentUserId })
       .populate('to', 'name email')
-      .populate('groupId', 'title groupCode')
+      .populate('groupId', 'title groupCode createdBy')
       .sort({ createdAt: -1 });
 
     const combined = [
-      ...requests.map(r => ({
-        _id: r._id,
-        from: currentUserId,
-        to: r.groupId.createdBy,
-        groupId: r.groupId,
-        requestType: 'join',
-        status: r.status,
-        skillMatchScore: r.matchScore,
-        message: r.message || '',
-        createdAt: r.createdAt,
-        respondedAt: r.respondedAt
-      })),
-      ...invitations.map(i => ({
-        _id: i._id,
-        from: currentUserId,
-        to: i.to,
-        groupId: i.groupId,
-        requestType: 'invitation',
-        status: i.status,
-        skillMatchScore: i.skillMatchScore,
-        message: i.message,
-        createdAt: i.createdAt,
-        respondedAt: i.respondedAt
-      }))
+      ...requests
+        .filter(r => r.groupId) // Ensure groupId exists
+        .map(r => ({
+          _id: r._id,
+          from: currentUserId,
+          to: r.groupId.createdBy || r.groupId._id,
+          groupId: r.groupId,
+          requestType: 'join',
+          status: r.status,
+          skillMatchScore: r.matchScore || 0,
+          message: r.message || '',
+          createdAt: r.createdAt,
+          respondedAt: r.respondedAt
+        })),
+      ...invitations
+        .filter(i => i.groupId && i.to) // Ensure required fields exist
+        .map(i => ({
+          _id: i._id,
+          from: currentUserId,
+          to: i.to._id || i.to,
+          groupId: i.groupId,
+          requestType: 'invitation',
+          status: i.status,
+          skillMatchScore: i.matchScore || 0,
+          message: i.message || '',
+          createdAt: i.createdAt,
+          respondedAt: i.respondedAt
+        }))
     ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     res.status(200).json({

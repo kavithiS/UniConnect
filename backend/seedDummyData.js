@@ -121,7 +121,7 @@ const seedDatabase = async () => {
       userId: { $in: ["S001", "S002", "S003", "S004"] },
     });
     await Group.deleteMany({
-      groupName: { $in: ["AI Project Team Alpha", "ITPM Project Group 01"] },
+      title: { $in: ["AI Project Team Alpha", "ITPM Project Group 01"] },
     });
 
     // Create students
@@ -135,11 +135,14 @@ const seedDatabase = async () => {
     // Create a group with all students as members
     console.log("Creating dummy group...");
     const dummyGroup = await Group.create({
-      groupName: "ITPM Project Group 01",
+      title: "ITPM Project Group 01",
+      description: "Project group for course ITPM. Collaborate and build the final project together.",
       members: studentIds,
-      createdBy: studentIds[0], // John Smith creates the group,
+      memberLimit: Math.max(4, studentIds.length),
+      requiredSkills: ["JavaScript", "Node.js", "React"],
+      status: "active",
     });
-    console.log(`✓ Created group: ${dummyGroup.groupName}`);
+    console.log(`✓ Created group: ${dummyGroup.title}`);
 
     // Create some initial messages for the group
     console.log("Creating initial messages...");
@@ -188,7 +191,7 @@ const seedDatabase = async () => {
     });
 
     console.log(`\n👥 GROUP CREATED:`);
-    console.log(`  Name: ${dummyGroup.groupName}`);
+    console.log(`  Name: ${dummyGroup.title}`);
     console.log(`  Members: ${dummyGroup.members.length}`);
     console.log(`\n🆔 GROUP ID (COPY THIS):`);
     console.log(`\n   ╔════════════════════════════════════════════╗`);

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getApiBaseUrl, getBackendBaseUrl } from "../utils/backendUrl";
 
 /**
  * Chat Service
@@ -6,8 +7,12 @@ import axios from "axios";
  * Base URL: http://localhost:5000/api/chat
  */
 
-const API_BASE_URL = "http://localhost:5000/api/chat";
-export const FILE_BASE_URL = "http://localhost:5000";
+const getChatApiBaseUrl = () => `${getApiBaseUrl()}/chat`;
+const getFileBaseUrl = () => getBackendBaseUrl();
+
+// Backward-compatible export used by existing chat components.
+// It resolves once at module load, which is fine for current usage.
+export const FILE_BASE_URL = getBackendBaseUrl();
 
 /**
  * Get all messages for a specific group
@@ -16,7 +21,7 @@ export const FILE_BASE_URL = "http://localhost:5000";
  */
 export const getMessages = async (groupId) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/messages/${groupId}`);
+    const response = await axios.get(`${getChatApiBaseUrl()}/messages/${groupId}`);
     return response.data;
   } catch (error) {
     console.error("Error fetching messages:", error);
@@ -31,7 +36,7 @@ export const getMessages = async (groupId) => {
  */
 export const sendMessage = async (messageData) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/message`, messageData);
+    const response = await axios.post(`${getChatApiBaseUrl()}/message`, messageData);
     return response.data;
   } catch (error) {
     console.error("Error sending message:", error);
@@ -58,7 +63,7 @@ export const uploadFile = async (uploadData) => {
     }
     formData.append("file", uploadData.file);
 
-    const response = await axios.post(`${API_BASE_URL}/upload`, formData, {
+    const response = await axios.post(`${getChatApiBaseUrl()}/upload`, formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
@@ -77,7 +82,7 @@ export const uploadFile = async (uploadData) => {
  */
 export const getGroupDetails = async (groupId) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/group/${groupId}`);
+    const response = await axios.get(`${getChatApiBaseUrl()}/group/${groupId}`);
     return response.data;
   } catch (error) {
     if (error?.response?.status === 404) {
@@ -96,7 +101,7 @@ export const getGroupDetails = async (groupId) => {
  */
 export const getStudentGroups = async (studentId) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/groups/${studentId}`);
+    const response = await axios.get(`${getChatApiBaseUrl()}/groups/${studentId}`);
     return response.data;
   } catch (error) {
     console.error("Error fetching student groups:", error);
@@ -111,7 +116,7 @@ export const getStudentGroups = async (studentId) => {
  */
 export const getFileUrl = (fileUrl) => {
   if (!fileUrl) return "";
-  return `${FILE_BASE_URL}${fileUrl}`;
+  return `${getFileBaseUrl()}${fileUrl}`;
 };
 
 /**
@@ -139,7 +144,7 @@ export const downloadFile = (fileUrl, fileName) => {
  */
 export const editMessage = async (messageId, text, senderId) => {
   try {
-    const response = await axios.put(`${API_BASE_URL}/message/${messageId}`, {
+    const response = await axios.put(`${getChatApiBaseUrl()}/message/${messageId}`, {
       text,
       senderId,
     });
@@ -159,7 +164,7 @@ export const editMessage = async (messageId, text, senderId) => {
 export const deleteMessage = async (messageId, senderId) => {
   try {
     const response = await axios.delete(
-      `${API_BASE_URL}/message/${messageId}`,
+      `${getChatApiBaseUrl()}/message/${messageId}`,
       {
         data: { senderId },
       },
@@ -180,7 +185,7 @@ export const deleteMessage = async (messageId, senderId) => {
 export const pinMessage = async (messageId, groupId) => {
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/message/${messageId}/pin`,
+      `${getChatApiBaseUrl()}/message/${messageId}/pin`,
       {
         groupId,
       },
@@ -204,7 +209,7 @@ export const pinMessage = async (messageId, groupId) => {
 export const unpinMessage = async (messageId) => {
   try {
     const response = await axios.delete(
-      `${API_BASE_URL}/message/${messageId}/pin`,
+      `${getChatApiBaseUrl()}/message/${messageId}/pin`,
     );
     return response.data;
   } catch (error) {
@@ -222,7 +227,7 @@ export const unpinMessage = async (messageId) => {
 export const starMessage = async (messageId, userId) => {
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/message/${messageId}/star`,
+      `${getChatApiBaseUrl()}/message/${messageId}/star`,
       {
         userId,
       },
@@ -241,7 +246,7 @@ export const starMessage = async (messageId, userId) => {
  */
 export const getPinnedMessages = async (groupId) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/group/${groupId}/pinned`);
+    const response = await axios.get(`${getChatApiBaseUrl()}/group/${groupId}/pinned`);
     return response.data;
   } catch (error) {
     console.error("Error fetching pinned messages:", error);
@@ -258,7 +263,7 @@ export const getPinnedMessages = async (groupId) => {
 export const replyToMessage = async (replyToMessageId, replyData) => {
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/message/reply/${replyToMessageId}`,
+      `${getChatApiBaseUrl()}/message/reply/${replyToMessageId}`,
       replyData,
     );
     return response.data;
@@ -277,7 +282,7 @@ export const replyToMessage = async (replyToMessageId, replyData) => {
 export const forwardMessage = async (messageId, forwardData) => {
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/message/${messageId}/forward`,
+      `${getChatApiBaseUrl()}/message/${messageId}/forward`,
       forwardData,
     );
     return response.data;
@@ -295,7 +300,7 @@ export const forwardMessage = async (messageId, forwardData) => {
 export const getGroupMembers = async (groupId) => {
   try {
     const response = await axios.get(
-      `${API_BASE_URL}/group/${groupId}/members`,
+      `${getChatApiBaseUrl()}/group/${groupId}/members`,
     );
     return response.data;
   } catch (error) {
@@ -317,7 +322,7 @@ export const getGroupMembers = async (groupId) => {
 export const reactToMessage = async (messageId, reactionData) => {
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/message/${messageId}/react`,
+      `${getChatApiBaseUrl()}/message/${messageId}/react`,
       reactionData,
     );
     return response.data;
@@ -333,7 +338,7 @@ export const reactToMessage = async (messageId, reactionData) => {
  */
 export const getAllGroups = async () => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/groups`);
+    const response = await axios.get(`${getChatApiBaseUrl()}/groups`);
     return response.data;
   } catch (error) {
     console.error("Error fetching all groups:", error);
@@ -350,7 +355,7 @@ export const getAllGroups = async () => {
 export const updateGroup = async (groupId, updateData) => {
   try {
     const response = await axios.patch(
-      `${API_BASE_URL}/group/${groupId}`,
+      `${getChatApiBaseUrl()}/group/${groupId}`,
       updateData,
     );
     return response.data;
@@ -368,7 +373,7 @@ export const updateGroup = async (groupId, updateData) => {
 export const clearGroupMessages = async (groupId) => {
   try {
     const response = await axios.delete(
-      `${API_BASE_URL}/group/${groupId}/messages`,
+      `${getChatApiBaseUrl()}/group/${groupId}/messages`,
     );
     return response.data;
   } catch (error) {
@@ -386,7 +391,7 @@ export const clearGroupMessages = async (groupId) => {
 export const leaveGroup = async (groupId, memberId) => {
   try {
     const response = await axios.delete(
-      `${API_BASE_URL}/group/${groupId}/member/${memberId}`,
+      `${getChatApiBaseUrl()}/group/${groupId}/member/${memberId}`,
     );
     return response.data;
   } catch (error) {
