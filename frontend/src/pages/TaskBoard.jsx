@@ -370,8 +370,8 @@ const TaskBoard = ({ projectId }) => {
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
-                      className={`flex-1 flex flex-col gap-3 ${
-                        snapshot.isDraggingOver 
+                      className={`flex-1 flex flex-col gap-3 overflow-y-auto ${
+                        snapshot.isDraggingOver
                           ? isDarkMode ? 'bg-primary/5' : 'bg-blue-50'
                           : ''
                       }`}
@@ -397,7 +397,7 @@ const TaskBoard = ({ projectId }) => {
                                 </div>
 
                                 <div className="flex gap-2">
-                                  <Link to={`/tasks/${task._id}`}>
+                                  <Link to={`/dashboard/tasks/${task._id}`}>
                                     <ExternalLink size={16} />
                                   </Link>
 
