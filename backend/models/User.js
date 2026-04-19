@@ -62,6 +62,11 @@ const userSchema = new mongoose.Schema(
       default: [],
       trim: true
     },
+    achievements: {
+      type: [String],
+      default: [],
+      trim: true
+    },
     role: {
       type: String,
       enum: ['Developer', 'Designer', 'Manager', 'Leader', 'Student'],
