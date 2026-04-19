@@ -61,17 +61,19 @@ const io = new Server(server, {
 });
 
 // Middleware
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    credentials: true,
+  }),
+);
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
@@ -124,6 +126,16 @@ io.on("connection", (socket) => {
     const { groupId } = data;
     socket.join(groupId);
     console.log(`User ${socket.id} joined group: ${groupId}`);
+  });
+
+  /**
+   * Leave a group chat room
+   */
+  socket.on("leave_group", (data) => {
+    const { groupId } = data;
+    if (!groupId) return;
+    socket.leave(groupId);
+    console.log(`User ${socket.id} left group: ${groupId}`);
   });
 
   /**
@@ -262,6 +274,13 @@ const seedDatabase = async () => {
 
     const demoEmail = "kavithi.thilakarathne123@gmail.com";
     const demoPassword = "TempPass123!";
+    const sampleUsers = [
+      "alice@example.com",
+      "bob@example.com",
+      "charlie@example.com",
+      "diana@example.com",
+      "eve@example.com",
+    ];
     const authUserCount = await User.countDocuments();
 
     // Keep one stable demo account for local development so login remains predictable
@@ -289,8 +308,10 @@ const seedDatabase = async () => {
       if (!demoUser.passwordHash) {
         demoUser.passwordHash = await bcrypt.hash(demoPassword, 10);
       }
-      if (!demoUser.fullName && demoUser.name) demoUser.fullName = demoUser.name;
-      if (!demoUser.name && demoUser.fullName) demoUser.name = demoUser.fullName;
+      if (!demoUser.fullName && demoUser.name)
+        demoUser.fullName = demoUser.name;
+      if (!demoUser.name && demoUser.fullName)
+        demoUser.name = demoUser.fullName;
       if (typeof demoUser.profileCompleted !== "boolean") {
         demoUser.profileCompleted = true;
       }
@@ -301,6 +322,25 @@ const seedDatabase = async () => {
     if (authUserCount === 0) {
       console.log(`   Email: ${demoEmail}`);
       console.log(`   Password: ${demoPassword}`);
+    }
+
+    const samplePasswordHash = await bcrypt.hash(demoPassword, 10);
+    const sampleUserUpdate = await User.updateMany(
+      {
+        email: { $in: sampleUsers },
+        $or: [{ passwordHash: { $exists: false } }, { passwordHash: "" }],
+      },
+      {
+        $set: {
+          passwordHash: samplePasswordHash,
+          profileCompleted: true,
+        },
+      },
+    );
+    if (sampleUserUpdate.modifiedCount > 0) {
+      console.log(
+        `✓ Backfilled ${sampleUserUpdate.modifiedCount} sample auth user(s) with a login password`,
+      );
     }
 
     const OLD_GROUP_NAME = "AI Project Team Alpha";
@@ -504,7 +544,9 @@ const startServer = async () => {
       console.log(
         `⚠ No available ports found in range ${preferredPort}..${preferredPort + 19}.`,
       );
-      console.log("→ Stop the existing process or free up a port and try again.");
+      console.log(
+        "→ Stop the existing process or free up a port and try again.",
+      );
       process.exit(0);
       return;
     }

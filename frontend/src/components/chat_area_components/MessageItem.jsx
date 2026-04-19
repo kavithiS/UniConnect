@@ -23,6 +23,7 @@ const MessageItem = ({
   repliedMessage,
   isOwnMessage,
   currentUserId,
+  isMobilePreview = false,
   onContextMenu,
   onClick,
   onReactionClick,
@@ -299,7 +300,7 @@ const MessageItem = ({
     <div
       className={`w-full flex gap-2 mb-3 group ${
         isOwnMessage ? "justify-end" : "justify-start"
-      }`}
+      } max-w-full box-border`}
       onContextMenu={(e) => {
         e.preventDefault();
         onContextMenu({
@@ -331,7 +332,9 @@ const MessageItem = ({
       )}
 
       {/* Main Message Bubble */}
-      <div className="relative">
+      <div
+        className={`w-full min-w-0 flex flex-col ${isOwnMessage ? "items-end" : "items-start"}`}
+      >
         {/* Sender Name - Only for other users' messages */}
         {!isOwnMessage && (
           <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 ml-1">
@@ -349,7 +352,7 @@ const MessageItem = ({
               });
             }
           }}
-          className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl transition-all duration-200 cursor-pointer ${
+          className={`${isMobilePreview ? "w-fit max-w-[68%]" : "max-w-xs lg:max-w-md"} px-4 py-2 rounded-2xl transition-all duration-200 cursor-pointer box-border overflow-x-hidden [overflow-wrap:anywhere] break-words ${
             isOwnMessage
               ? "bg-blue-500 text-white rounded-br-none"
               : "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none"
@@ -403,7 +406,7 @@ const MessageItem = ({
             <p
               className={`text-sm leading-relaxed break-words flex-1 ${
                 message.isEdited ? "text-xs opacity-90" : ""
-              }`}
+              } [overflow-wrap:anywhere]`}
             >
               {renderTextWithLinks()}
             </p>
@@ -454,7 +457,7 @@ const MessageItem = ({
                           controls
                           preload="metadata"
                           src={`${FILE_BASE_URL}${message.fileUrl}`}
-                          className="w-full min-w-[320px] max-w-[480px]"
+                          className={`w-full ${isMobilePreview ? "min-w-0 max-w-full" : "min-w-[320px] max-w-[480px]"}`}
                         >
                           <track kind="captions" />
                         </audio>
@@ -585,36 +588,58 @@ const MessageItem = ({
       </div>
 
       {/* Message Actions (shown on hover) */}
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-        {/* Star Count */}
-        {message.starredBy && message.starredBy.length > 0 && (
+      {!isMobilePreview && (
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          {/* Star Count */}
+          {message.starredBy && message.starredBy.length > 0 && (
+            <div
+              className={`flex items-center gap-0.5 px-2 py-1 rounded-full text-xs ${
+                userStarred
+                  ? "bg-yellow-200 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+              }`}
+            >
+              <FaStar size={12} />
+              <span>{message.starredBy.length}</span>
+            </div>
+          )}
+
+          {/* Pin Badge */}
+          {message.isPinned && (
+            <div className="flex items-center gap-0.5 px-2 py-1 rounded-full text-xs bg-orange-200 dark:bg-orange-900 text-orange-700 dark:text-orange-300">
+              <FaThumbtack size={12} />
+            </div>
+          )}
+
+          {/* Reply Count */}
+          {message.replies && message.replies.length > 0 && (
+            <div className="flex items-center gap-0.5 px-2 py-1 rounded-full text-xs bg-blue-200 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+              <FaReply size={12} />
+              <span>{message.replies.length}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isOwnMessage && (
+        <div className="flex-shrink-0">
           <div
-            className={`flex items-center gap-0.5 px-2 py-1 rounded-full text-xs ${
-              userStarred
-                ? "bg-yellow-200 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300"
-                : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
-            }`}
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-lg ${getAvatarColor(
+              message.senderName,
+            )}`}
           >
-            <FaStar size={12} />
-            <span>{message.starredBy.length}</span>
+            {message.profilePicture ? (
+              <img
+                src={message.profilePicture}
+                alt={message.senderName}
+                className="w-full h-full rounded-full object-cover"
+              />
+            ) : (
+              getInitial(message.senderName)
+            )}
           </div>
-        )}
-
-        {/* Pin Badge */}
-        {message.isPinned && (
-          <div className="flex items-center gap-0.5 px-2 py-1 rounded-full text-xs bg-orange-200 dark:bg-orange-900 text-orange-700 dark:text-orange-300">
-            <FaThumbtack size={12} />
-          </div>
-        )}
-
-        {/* Reply Count */}
-        {message.replies && message.replies.length > 0 && (
-          <div className="flex items-center gap-0.5 px-2 py-1 rounded-full text-xs bg-blue-200 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-            <FaReply size={12} />
-            <span>{message.replies.length}</span>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

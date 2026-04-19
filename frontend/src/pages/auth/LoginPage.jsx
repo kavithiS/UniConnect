@@ -1,29 +1,30 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { LockKeyhole } from 'lucide-react';
-import { loginUser, setAuthToken } from '../../services/authService';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { LockKeyhole } from "lucide-react";
+import { loginUser, setAuthToken } from "../../services/authService";
 
 function LoginPage({ onAuthSuccess }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
-      const data = await loginUser({ email, password });
+      const normalizedEmail = email.trim().toLowerCase();
+      const data = await loginUser({ email: normalizedEmail, password });
       setAuthToken(data.token);
       onAuthSuccess(data.user);
 
       if (data.user.profileCompleted) {
-        navigate('/home');
+        navigate("/home");
       } else {
-        navigate('/profile-setup');
+        navigate("/profile-setup");
       }
     } catch (err) {
       setError(err.message);
@@ -41,7 +42,9 @@ function LoginPage({ onAuthSuccess }) {
           </div>
           <div>
             <h1 className="text-2xl font-semibold">Login</h1>
-            <p className="text-sm text-slate-400">Access your collaboration workspace</p>
+            <p className="text-sm text-slate-400">
+              Access your collaboration workspace
+            </p>
           </div>
         </div>
 
@@ -59,7 +62,9 @@ function LoginPage({ onAuthSuccess }) {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm text-slate-300">Password</label>
+            <label className="mb-2 block text-sm text-slate-300">
+              Password
+            </label>
             <input
               type="password"
               value={password}
@@ -77,13 +82,16 @@ function LoginPage({ onAuthSuccess }) {
             disabled={loading}
             className="w-full rounded-xl bg-indigo-500 px-4 py-3 font-medium text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
 
         <p className="mt-5 text-sm text-slate-400">
-          New user?{' '}
-          <Link to="/register" className="text-indigo-300 hover:text-indigo-200">
+          New user?{" "}
+          <Link
+            to="/register"
+            className="text-indigo-300 hover:text-indigo-200"
+          >
             Create an account
           </Link>
         </p>

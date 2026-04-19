@@ -9,6 +9,7 @@ exports.setupProfile = async (req, res) => {
       semester,
       enrolledYear,
       skills,
+      achievements,
       about,
     } = req.body;
 
@@ -23,6 +24,10 @@ exports.setupProfile = async (req, res) => {
       ? skills.map((skill) => String(skill).trim()).filter(Boolean)
       : [];
 
+    const normalizedAchievements = Array.isArray(achievements)
+      ? achievements.map((achievement) => String(achievement).trim()).filter(Boolean)
+      : [];
+
     const user = await User.findByIdAndUpdate(
       req.userId,
       {
@@ -33,6 +38,7 @@ exports.setupProfile = async (req, res) => {
         semester: String(semester).trim(),
         enrolledYear: String(enrolledYear).trim(),
         skills: normalizedSkills,
+        achievements: normalizedAchievements,
         about: String(about || '').trim(),
         profileCompleted: true,
       },

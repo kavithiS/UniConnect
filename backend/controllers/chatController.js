@@ -1,6 +1,7 @@
 const Message = require("../models/Message");
 const Group = require("../models/Group");
 const Student = require("../models/Student");
+const mongoose = require("mongoose");
 const path = require("path");
 const fs = require("fs");
 
@@ -899,6 +900,23 @@ exports.leaveGroup = async (req, res) => {
     const { groupId, memberId } = req.params;
 
     console.log(`\n🚪 Removing member ${memberId} from group ${groupId}...`);
+
+    if (!groupId || !memberId || memberId === "null") {
+      return res.status(400).json({
+        success: false,
+        message: "Valid groupId and memberId are required",
+      });
+    }
+
+    if (
+      !mongoose.Types.ObjectId.isValid(groupId) ||
+      !mongoose.Types.ObjectId.isValid(memberId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid groupId or memberId format",
+      });
+    }
 
     // Remove member from group
     const updatedGroup = await Group.findByIdAndUpdate(
