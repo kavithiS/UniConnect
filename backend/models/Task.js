@@ -6,6 +6,19 @@ const commentSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
+const subtaskSchema = new mongoose.Schema({
+    title: { type: String, required: true },
+    status: { type: String, enum: ['todo', 'inprogress', 'done'], default: 'todo' }
+});
+
+const attachmentSchema = new mongoose.Schema({
+    name:       { type: String, required: true },
+    url:        { type: String, required: true },
+    type:       { type: String },
+    size:       { type: Number },
+    uploadedAt: { type: Date, default: Date.now }
+});
+
 const taskSchema = new mongoose.Schema({
     title: { type: String, required: true },
     description: { type: String },
@@ -29,6 +42,9 @@ const taskSchema = new mongoose.Schema({
         ref: 'Project', 
         required: true 
     },
+
+    subtasks:    [subtaskSchema],
+    attachments: [attachmentSchema],
 
     comments: [commentSchema],
 
