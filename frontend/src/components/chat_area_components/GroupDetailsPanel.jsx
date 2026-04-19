@@ -9,14 +9,12 @@ import {
   FaFile,
   FaStar,
   FaTrash,
-  FaSignOutAlt,
   FaChevronRight,
   FaChevronDown,
   FaFolderOpen,
   FaLink,
 } from "react-icons/fa";
 import { FILE_BASE_URL } from "../../services/chatService";
-
 
 const GroupDetailsPanel = ({
   isOpen,
@@ -26,8 +24,8 @@ const GroupDetailsPanel = ({
   currentUserId,
   onUpdateGroup,
   onClearChat,
-  onLeaveGroup,
   onStarredMessageClick,
+  isEmbeddedPreview = false,
 }) => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedGroupName, setEditedGroupName] = useState("");
@@ -304,22 +302,24 @@ const GroupDetailsPanel = ({
   return (
     <>
       {/* Overlay */}
-      <div
-        className="fixed inset-0 bg-black bg-opacity-30 z-40 lg:hidden"
-        onClick={onClose}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") onClose();
-        }}
-        role="button"
-        tabIndex={0}
-        aria-label="Close group details"
-      />
+      {!isEmbeddedPreview && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-30 z-40 lg:hidden"
+          onClick={onClose}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") onClose();
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="Close group details"
+        />
+      )}
 
       {/* Side Panel */}
       <div
-        className={`fixed lg:relative right-0 top-0 h-full w-full sm:w-96 bg-white dark:bg-gray-800 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`${isEmbeddedPreview ? "absolute right-0 top-0 h-full w-[min(42vw,380px)] sm:w-[360px]" : "fixed lg:relative right-0 top-0 h-full w-full sm:w-96"} bg-white dark:bg-gray-800 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
           isOpen ? "translate-x-0" : "translate-x-full"
-        } flex flex-col`}
+        } flex flex-col overflow-hidden`}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
@@ -785,15 +785,6 @@ const GroupDetailsPanel = ({
             >
               <FaTrash />
               <span className="font-medium">Clear Chat</span>
-            </button>
-
-            {/* Leave Group */}
-            <button
-              onClick={onLeaveGroup}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left bg-gray-50 dark:bg-gray-900 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg transition"
-            >
-              <FaSignOutAlt />
-              <span className="font-medium">Leave Group</span>
             </button>
           </div>
         </div>
