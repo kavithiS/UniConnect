@@ -563,12 +563,40 @@ const GroupChat = () => {
       );
     });
 
+    socket.on("message_deleted", ({ messageId, deletedAt }) => {
+      if (!messageId) return;
+
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg._id === messageId
+            ? {
+                ...msg,
+                isDeleted: true,
+                text: "[This message was deleted]",
+                reactions: [],
+                mentions: [],
+                replyTo: null,
+                isEdited: false,
+                editedAt: null,
+                isForwarded: false,
+                fileUrl: null,
+                fileName: null,
+                fileType: null,
+                fileSize: null,
+                deletedAt: deletedAt || new Date().toISOString(),
+              }
+            : msg,
+        ),
+      );
+    });
+
     return () => {
       socket.off("receive_message");
       socket.off("receiveMessage");
       socket.off("user_typing");
       socket.off("user_stop_typing");
       socket.off("reaction_added");
+      socket.off("message_deleted");
     };
   }, [senderName, groupId]);
 
@@ -906,6 +934,23 @@ const GroupChat = () => {
     });
   };
 
+  const toDeletedMessageState = (message) => ({
+    ...message,
+    isDeleted: true,
+    text: "[This message was deleted]",
+    reactions: [],
+    mentions: [],
+    replyTo: null,
+    isEdited: false,
+    editedAt: null,
+    isForwarded: false,
+    fileUrl: null,
+    fileName: null,
+    fileType: null,
+    fileSize: null,
+    deletedAt: new Date().toISOString(),
+  });
+
   /**
    * Handle edit message
    */
@@ -1004,12 +1049,15 @@ const GroupChat = () => {
         // First delete: mark as deleted
         await deleteMessage(messageToDelete, senderId);
 
+        socket.emit("delete_message", {
+          groupId,
+          messageId: messageToDelete,
+        });
+
         // Update message in local state
         setMessages(
           messages.map((m) =>
-            m._id === messageToDelete
-              ? { ...m, isDeleted: true, text: "[This message was deleted]" }
-              : m,
+            m._id === messageToDelete ? toDeletedMessageState(m) : m,
           ),
         );
       }
@@ -1020,9 +1068,7 @@ const GroupChat = () => {
       if (err?.response?.status === 404) {
         setMessages(
           messages.map((m) =>
-            m._id === messageToDelete
-              ? { ...m, isDeleted: true, text: "[This message was deleted]" }
-              : m,
+            m._id === messageToDelete ? toDeletedMessageState(m) : m,
           ),
         );
         setShowDeleteDialog(false);
@@ -1439,6 +1485,11 @@ const GroupChat = () => {
             // First delete: mark as deleted
             try {
               await deleteMessage(messageId, senderId);
+
+              socket.emit("delete_message", {
+                groupId,
+                messageId,
+              });
             } catch (err) {
               console.error("Bulk delete failed for message:", messageId, err);
             }
@@ -1452,11 +1503,7 @@ const GroupChat = () => {
           selectedMessageIds.includes(message._id) &&
           isMyMessage(message) &&
           !message.isDeleted
-            ? {
-                ...message,
-                isDeleted: true,
-                text: "[This message was deleted]",
-              }
+            ? toDeletedMessageState(message)
             : message,
         ),
       );
@@ -2316,7 +2363,7 @@ const GroupChat = () => {
                           ? "Edit message..."
                           : "Type a message... @ to mention"
                       }
-                      className={`flex-1 bg-transparent outline-none placeholder-opacity-70 ${isDarkMode ? "text-gray-200 placeholder-gray-400" : "text-gray-800 placeholder-gray-500"}`}
+                      className={`flex-1 bg-transparent border-none outline-none ring-0 focus:outline-none focus:ring-0 placeholder-opacity-70 ${isDarkMode ? "text-gray-200 placeholder-gray-400" : "text-gray-800 placeholder-gray-500"}`}
                       disabled={isSending}
                     />
 

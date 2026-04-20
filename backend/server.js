@@ -380,6 +380,28 @@ io.on("connection", (socket) => {
   });
 
   /**
+   * Message deleted sync
+   * Client emits: { groupId, messageId }
+   */
+  socket.on("delete_message", async (data) => {
+    try {
+      const { groupId, messageId } = data || {};
+      if (!groupId || !messageId) return;
+
+      const message = await Message.findById(messageId).lean();
+      if (!message) return;
+
+      io.to(groupId).emit("message_deleted", {
+        groupId,
+        messageId,
+        deletedAt: message.updatedAt || new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error handling message delete sync:", error);
+    }
+  });
+
+  /**
    * User disconnected
    */
   socket.on("disconnect", () => {

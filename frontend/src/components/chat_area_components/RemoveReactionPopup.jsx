@@ -14,7 +14,7 @@ const RemoveReactionPopup = ({ reaction, onRemove, onClose }) => {
 
       {/* Dialog */}
       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-        <div className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-2xl p-5">
+        <div className="w-full max-w-sm rounded-xl bg-white dark:bg-gray-800 shadow-lg p-5">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
             <span className="text-2xl">{reaction.emoji}</span>
             Remove Reaction

@@ -379,6 +379,14 @@ exports.deleteMessage = async (req, res) => {
     message.text = "[This message was deleted]";
     message.fileUrl = null;
     message.fileName = null;
+    message.fileType = null;
+    message.fileSize = null;
+    message.reactions = [];
+    message.mentions = [];
+    message.replyTo = null;
+    message.isEdited = false;
+    message.editedAt = null;
+    message.isForwarded = false;
 
     await message.save();
 

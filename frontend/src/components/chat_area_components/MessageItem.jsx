@@ -295,10 +295,18 @@ const MessageItem = ({
   };
 
   const reactions = groupedReactions();
+  const bubbleBaseClass =
+    "relative w-fit max-w-[70%] px-4 py-2 rounded-2xl rounded-tl-none shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer box-border overflow-x-hidden [overflow-wrap:anywhere] break-words";
+
+  const bubbleToneClass = isOwnMessage
+    ? "bg-blue-500 dark:bg-blue-600 text-white"
+    : "bg-gray-200 dark:bg-gray-700 text-black dark:text-white";
+
+  const bubbleClassName = `${bubbleBaseClass} ${bubbleToneClass} ${message.isDeleted ? "italic opacity-60" : ""} ${!message.isDeleted && reactions.length > 0 ? "pb-7" : ""}`;
 
   return (
     <div
-      className={`w-full flex gap-2 mb-3 group ${
+      className={`w-full flex gap-2 mb-2 group ${
         isOwnMessage ? "justify-end" : "justify-start"
       } max-w-full box-border`}
       onContextMenu={(e) => {
@@ -352,54 +360,52 @@ const MessageItem = ({
               });
             }
           }}
-          className={`${isMobilePreview ? "w-fit max-w-[68%]" : "max-w-xs lg:max-w-md"} relative px-4 py-2 rounded-2xl transition-all duration-200 cursor-pointer box-border overflow-x-hidden [overflow-wrap:anywhere] break-words ${
-            isOwnMessage
-              ? "bg-blue-500 text-white rounded-br-none"
-              : "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none"
-          } ${message.isDeleted ? "italic opacity-60" : ""} ${reactions.length > 0 ? "pb-7" : ""}`}
+          className={`${bubbleClassName} ${isMobilePreview ? "w-fit max-w-[68%]" : ""}`}
         >
           {/* Forwarded Tag */}
-          {message.isForwarded && (
+          {!message.isDeleted && message.isForwarded && (
             <div className="mb-1.5">
               <span className="text-sm opacity-70 italic">⤷ Forwarded</span>
             </div>
           )}
 
           {/* Reply Preview */}
-          {message.replyTo && (
+          {!message.isDeleted && message.replyTo && (
             <div
-              className={`mb-2 px-2 py-1.5 rounded border-l-2 ${
+              className={`mb-2 px-3 py-2 rounded-xl border-l-4 ${
                 isOwnMessage
-                  ? "bg-blue-400/40 border-blue-200"
-                  : "bg-gray-300/60 dark:bg-gray-600/60 border-blue-400"
+                  ? "bg-blue-400/15 border-blue-300/70 dark:bg-blue-950/25 dark:border-blue-300/60"
+                  : "bg-gray-100/80 border-blue-400/70 dark:bg-gray-800 dark:border-blue-400/60"
               }`}
             >
-              <p className="text-[11px] font-semibold opacity-90">
+              <p className="text-[11px] font-semibold opacity-90 leading-tight">
                 {repliedMessage?.senderName || "Replying to message"}
               </p>
-              <p className="text-xs opacity-85 line-clamp-2">
+              <p className="text-[11px] opacity-80 line-clamp-2 leading-snug">
                 {repliedMessage?.text || "Original message unavailable"}
               </p>
             </div>
           )}
 
           {/* Mention Badge */}
-          {message.mentions && message.mentions.length > 0 && (
-            <div className="text-xs mb-1 opacity-80 flex flex-wrap gap-1">
-              {message.mentions.map((mention) => (
-                <span
-                  key={mention.userId}
-                  className={`px-2 py-0.5 rounded-full ${
-                    isOwnMessage
-                      ? "bg-blue-400 text-blue-100"
-                      : "bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200"
-                  }`}
-                >
-                  @{mention.userName}
-                </span>
-              ))}
-            </div>
-          )}
+          {!message.isDeleted &&
+            message.mentions &&
+            message.mentions.length > 0 && (
+              <div className="text-xs mb-1 opacity-80 flex flex-wrap gap-1">
+                {message.mentions.map((mention) => (
+                  <span
+                    key={mention.userId}
+                    className={`px-2 py-0.5 rounded-full ${
+                      isOwnMessage
+                        ? "bg-blue-400 text-blue-100"
+                        : "bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200"
+                    }`}
+                  >
+                    @{mention.userName}
+                  </span>
+                ))}
+              </div>
+            )}
 
           {/* Message Text and Link Icon */}
           <div className="flex items-end gap-2">
@@ -491,10 +497,10 @@ const MessageItem = ({
                     href={`${FILE_BASE_URL}${message.fileUrl}`}
                     download={message.fileName}
                     onClick={(e) => e.stopPropagation()}
-                    className={`flex items-center gap-3 p-3 rounded-lg max-w-xs transition-all hover:opacity-80 ${
+                    className={`flex items-center gap-3 p-3 rounded-xl max-w-xs transition-all hover:opacity-80 ${
                       isOwnMessage
-                        ? "bg-blue-600/20 border border-blue-400/30"
-                        : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600"
+                        ? "bg-blue-400/15 dark:bg-blue-900/20"
+                        : "bg-white/60 dark:bg-gray-800/60"
                     }`}
                     title="Click to View"
                   >
@@ -540,7 +546,7 @@ const MessageItem = ({
           )}
 
           {/* Edit Info */}
-          {message.isEdited && (
+          {!message.isDeleted && message.isEdited && (
             <p className="text-xs mt-1 opacity-75 italic">(edited)</p>
           )}
 
@@ -550,7 +556,7 @@ const MessageItem = ({
           </p>
 
           {/* Reactions Display (inside bubble, bottom-right) */}
-          {reactions.length > 0 && (
+          {!message.isDeleted && reactions.length > 0 && (
             <div className="absolute bottom-1 right-2 flex gap-1">
               {reactions.map((reaction, index) => (
                 <div
@@ -567,8 +573,8 @@ const MessageItem = ({
                   }}
                   className={`flex items-center gap-0.5 px-1 py-0.5 rounded-full text-xs shadow border transition-all duration-200 ${
                     reaction.hasCurrentUser
-                      ? "bg-white dark:bg-gray-800 border-blue-400 dark:border-blue-500 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30"
-                      : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+                      ? "bg-white/95 dark:bg-gray-800/95 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                      : "bg-white/95 dark:bg-gray-800/95"
                   }`}
                   title={reaction.users.join(", ")}
                 >
