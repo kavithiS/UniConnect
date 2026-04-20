@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
 import { io } from "socket.io-client";
 import {
@@ -14,13 +15,14 @@ import {
   forwardMessage,
   getGroupMembers,
   reactToMessage,
-  getAllGroups,
+  getStudentGroups,
   updateGroup,
   clearGroupMessages,
   leaveGroup,
 } from "../../services/chatService";
 import { getBackendBaseUrl } from "../../utils/backendUrl";
 import studentService from "../../services/studentService";
+import { fetchCurrentUser, getAuthToken } from "../../services/authService";
 import {
   FaPaperPlane,
   FaPaperclip,
@@ -47,13 +49,109 @@ import {
 // Socket.IO connection
 const socket = io(getBackendBaseUrl());
 
+const getMessageIdentity = (message) => {
+  if (!message) return "";
+  if (message._id) return String(message._id);
+  if (message.clientMessageId) return String(message.clientMessageId);
+  return "";
+};
+
+const mergeMessages = (baseMessages, incomingMessages) => {
+  const merged = [...baseMessages];
+
+  incomingMessages.forEach((incoming) => {
+    const incomingId = getMessageIdentity(incoming);
+    const existingIndex = merged.findIndex((existing) => {
+      if (incoming._id && existing._id) {
+        return String(existing._id) === String(incoming._id);
+      }
+
+      if (incoming.clientMessageId && existing.clientMessageId) {
+        return existing.clientMessageId === incoming.clientMessageId;
+      }
+
+      return (
+        getMessageIdentity(existing) !== "" &&
+        getMessageIdentity(existing) === incomingId
+      );
+    });
+
+    if (existingIndex >= 0) {
+      merged[existingIndex] = { ...merged[existingIndex], ...incoming };
+    } else {
+      merged.push(incoming);
+    }
+  });
+
+  return merged.sort(
+    (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
+  );
+};
+
+const MAX_UPLOAD_SIZE_MB = 10;
+const MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
+const ALLOWED_UPLOAD_MIME_TYPES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/zip",
+  "application/x-rar-compressed",
+  "application/x-7z-compressed",
+  "image/jpeg",
+  "image/png",
+]);
+const ALLOWED_UPLOAD_EXTENSIONS = new Set([
+  ".zip",
+  ".rar",
+  ".7z",
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".jpg",
+  ".jpeg",
+  ".png",
+]);
+
+const getFileExtension = (fileName = "") => {
+  const dotIndex = fileName.lastIndexOf(".");
+  if (dotIndex < 0) return "";
+  return fileName.slice(dotIndex).toLowerCase();
+};
+
+const isAllowedUploadFile = (file) => {
+  const normalizedMimeType = (file?.type || "").toLowerCase();
+  const extension = getFileExtension(file?.name || "");
+  const isImageMime = normalizedMimeType.startsWith("image/");
+  const isAllowedByMime =
+    ALLOWED_UPLOAD_MIME_TYPES.has(normalizedMimeType) || isImageMime;
+  const isAllowedByExtension = ALLOWED_UPLOAD_EXTENSIONS.has(extension);
+  return isAllowedByMime || isAllowedByExtension;
+};
+
 const GroupChat = () => {
   const { isDarkMode } = useTheme();
-  // Get current user from localStorage (set by StudentProfile)
-  const storedFirstName = localStorage.getItem("userFirstName") || "John";
-  const storedLastName = localStorage.getItem("userLastName") || "Smith";
-  // do NOT default to an invalid id like 'S001' — prefer null so code validates correctly
-  const storedUserId = localStorage.getItem("userId") || null;
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const previewGroupIdFromQuery = searchParams.get("groupId");
+  const isEmbeddedMobilePreview = searchParams.get("preview") === "mobile";
+  const screenHeightClass = isEmbeddedMobilePreview
+    ? "h-full min-h-0"
+    : "h-screen";
+  const chatHorizontalPadding = isEmbeddedMobilePreview ? "px-3" : "px-6";
+
+  const handleClosePreviewFrame = () => {
+    if (!isEmbeddedMobilePreview) return;
+    globalThis.parent?.postMessage(
+      { type: "close-group-chat-preview" },
+      globalThis.location.origin,
+    );
+  };
+  // Current authenticated user id (User collection)
+  const initialAuthUserId =
+    localStorage.getItem("userId") ||
+    localStorage.getItem("currentUserId") ||
+    null;
+  const [currentUserId, setCurrentUserId] = useState(initialAuthUserId);
   const storedProfilePicture = localStorage.getItem("userProfilePicture");
 
   // Dynamically load group ID from database instead of hardcoding
@@ -63,36 +161,8 @@ const GroupChat = () => {
   const [senderProfilePicture, setSenderProfilePicture] =
     useState(storedProfilePicture);
 
-  // Dummy messages for testing (will be replaced by actual messages from backend)
-  const DUMMY_MESSAGES = [
-    {
-      _id: "507f1f77bcf86cd799439001",
-      groupId: groupId || "loading-group",
-      sender: "69a7f8998ad3f4305c60c3ea",
-      senderName: "Emma Johnson",
-      text: "Hey everyone! 👋 How is the project going?",
-      createdAt: new Date(Date.now() - 300000).toISOString(),
-    },
-    {
-      _id: "507f1f77bcf86cd799439002",
-      groupId: groupId || "loading-group",
-      sender: "69a7f8998ad3f4305c60c3eb",
-      senderName: "Michael Brown",
-      text: "I've completed my part of the assignment. Let me know if you need any clarifications.",
-      createdAt: new Date(Date.now() - 180000).toISOString(),
-    },
-    {
-      _id: "507f1f77bcf86cd799439003",
-      groupId: groupId || "loading-group",
-      sender: "69a7f8998ad3f4305c60c3ec",
-      senderName: "Sarah Davis",
-      text: "Great work! 🎉 I'm wrapping up the documentation now.",
-      createdAt: new Date(Date.now() - 60000).toISOString(),
-    },
-  ];
-
   const [groupDetails, setGroupDetails] = useState(null);
-  const [messages, setMessages] = useState(DUMMY_MESSAGES);
+  const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -131,6 +201,7 @@ const GroupChat = () => {
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [showGroupDetails, setShowGroupDetails] = useState(false); // Group details panel
   const [noGroupsAvailable, setNoGroupsAvailable] = useState(false); // Flag when no groups exist
+  const [chatSelectionNonce, setChatSelectionNonce] = useState(0);
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -141,6 +212,67 @@ const GroupChat = () => {
   const recordingTimerRef = useRef(null);
   const recordedChunksRef = useRef([]);
   const autoSendAfterStopRef = useRef(false);
+  const activeGroupRef = useRef(null);
+
+  const clearGroupChatCache = (targetGroupId) => {
+    if (!targetGroupId) return;
+    localStorage.removeItem(`chat_messages_${targetGroupId}`);
+    localStorage.removeItem(`hidden_messages_${targetGroupId}`);
+    localStorage.removeItem(`removed_messages_${targetGroupId}`);
+    localStorage.removeItem(`pinned_messages_${targetGroupId}`);
+  };
+
+  const resetGroupViewAfterLeave = (targetGroupId) => {
+    clearGroupChatCache(targetGroupId);
+    localStorage.removeItem("activeGroupId");
+    if (targetGroupId) {
+      socket.emit("leave_group", { groupId: targetGroupId });
+    }
+    window.dispatchEvent(new Event("group-membership-changed"));
+    setGroupId(null);
+    setGroupDetails(null);
+    setMessages([]);
+    setPinnedMessages([]);
+    setGroupMembers([]);
+    setMentions([]);
+    setSelectedMessageIds([]);
+    setMessagesToForward([]);
+    setForwardTargetGroupId("");
+    setTyping(false);
+    setReplyingTo(null);
+    setEditingMessage(null);
+    setContextMenu(null);
+    setShowMentionDropdown(false);
+    setShowPinnedPanel(false);
+    setSelectionMode(false);
+    setShowForwardDialog(false);
+    setShowDeleteDialog(false);
+    setMessageToDelete(null);
+    setShowBulkDeleteDialog(false);
+    setShowEmojiPicker(false);
+    setShowReactionPicker(null);
+    setShowRemoveReactionPopup(null);
+    setIsRecording(false);
+    setIsPaused(false);
+    setRecordedAudioFile(null);
+    setRecordingDuration(0);
+    setShowGroupDetails(false);
+    setError(null);
+    setNoGroupsAvailable(false);
+  };
+
+  useEffect(() => {
+    if (!previewGroupIdFromQuery) {
+      return;
+    }
+
+    localStorage.setItem("activeGroupId", previewGroupIdFromQuery);
+    setGroupId(previewGroupIdFromQuery);
+    setNoGroupsAvailable(false);
+    setError(null);
+    setIsLoading(true);
+    setChatSelectionNonce((current) => current + 1);
+  }, [previewGroupIdFromQuery]);
 
   useEffect(() => {
     if (recordedAudioFile && autoSendAfterStopRef.current) {
@@ -156,83 +288,179 @@ const GroupChat = () => {
   }, [isRecording]);
 
   useEffect(() => {
-    const fetchCurrentUser = async () => {
+    const handleGroupChatSelected = (event) => {
+      const selectedGroupId = event?.detail?.groupId;
+
+      if (!selectedGroupId) {
+        return;
+      }
+
+      const previousGroupId = activeGroupRef.current;
+      if (previousGroupId && previousGroupId !== selectedGroupId) {
+        socket.emit("leave_group", { groupId: previousGroupId });
+      }
+
+      // Reset group-scoped UI state before hydrating the newly selected group.
+      setMessages([]);
+      setPinnedMessages([]);
+      setGroupMembers([]);
+      setTyping(false);
+      setReplyingTo(null);
+      setEditingMessage(null);
+      setContextMenu(null);
+      setSelectedMessageIds([]);
+      setSelectionMode(false);
+
+      localStorage.setItem("activeGroupId", selectedGroupId);
+      setGroupId(selectedGroupId);
+      setNoGroupsAvailable(false);
+      setError(null);
+      setIsLoading(true);
+      setChatSelectionNonce((current) => current + 1);
+    };
+
+    window.addEventListener("group-chat-selected", handleGroupChatSelected);
+
+    return () => {
+      window.removeEventListener(
+        "group-chat-selected",
+        handleGroupChatSelected,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    const resolveChatIdentity = async () => {
+      const token = getAuthToken();
+
       try {
-        // First try to fetch all students and find the current user
+        let resolvedAuthUser = null;
+
+        if (token) {
+          resolvedAuthUser = await fetchCurrentUser(token);
+          if (resolvedAuthUser?._id) {
+            const authId = String(resolvedAuthUser._id);
+            localStorage.setItem("userId", authId);
+            localStorage.setItem("currentUserId", authId);
+            setCurrentUserId(authId);
+          }
+        }
+
+        const authId = resolvedAuthUser?._id
+          ? String(resolvedAuthUser._id)
+          : initialAuthUserId;
+
+        if (!authId) {
+          setSenderId(null);
+          setSenderName(null);
+          return;
+        }
+
         const response = await studentService.getAllStudents();
         const students = response.data || [];
 
-        if (students.length > 0) {
-          // For now, use the first student (or find by userId from localStorage)
-          // Try to match by _id or by a legacy userId field, otherwise fallback to first student
-          const currentUser =
-            students.find((s) => (s._id && s._id.toString() === storedUserId) || (s.userId && s.userId === storedUserId))
-            || students[0];
+        const matchingStudent = students.find(
+          (student) =>
+            String(student?.userId || "") === authId ||
+            String(student?._id || "") === authId,
+        );
 
-          setSenderId(currentUser._id);
-          setSenderName(`${currentUser.firstName} ${currentUser.lastName}`);
+        if (matchingStudent?._id) {
+          setSenderId(String(matchingStudent._id));
+          setSenderName(
+            `${matchingStudent.firstName || ""} ${matchingStudent.lastName || ""}`.trim() ||
+              resolvedAuthUser?.fullName ||
+              resolvedAuthUser?.name ||
+              resolvedAuthUser?.email ||
+              "User",
+          );
 
-          if (currentUser.profilePicture) {
-            setSenderProfilePicture(currentUser.profilePicture);
+          if (matchingStudent.profilePicture) {
+            setSenderProfilePicture(matchingStudent.profilePicture);
           }
-
-          console.log(
-            "✓ Loaded current user for chat:",
-            currentUser.firstName,
-            currentUser.lastName,
+        } else {
+          // Use authenticated user id as sender fallback; backend resolves/creates linked student when needed.
+          setSenderId(authId);
+          setSenderName(
+            resolvedAuthUser?.fullName ||
+              resolvedAuthUser?.name ||
+              resolvedAuthUser?.email ||
+              "User",
           );
         }
       } catch (err) {
-        console.warn(
-          "Could not fetch current user, using localStorage data:",
-          err.message,
-        );
-        // Fallback to using just the localStorage values
-        setSenderName(`${storedFirstName} ${storedLastName}`);
+        console.warn("Could not resolve chat identity:", err.message);
       }
     };
 
-    fetchCurrentUser();
-  }, []);
+    resolveChatIdentity();
+  }, [initialAuthUserId]);
 
   useEffect(() => {
     const initializeChat = async () => {
       try {
         setIsLoading(true);
 
-        // Step 1: Fetch all groups and use the first one
+        // Step 1: Resolve selected group from active selection or current user's groups.
+        const preferredGroupId = localStorage.getItem("activeGroupId");
         let selectedGroupId = groupId;
+        const currentStudentId = currentUserId;
         if (!selectedGroupId) {
-          try {
-            const groupsResponse = await getAllGroups();
-            // Backend returns { success: true, data: [...groups...] }
-            const allGroups = groupsResponse.data || [];
-            if (allGroups.length > 0) {
-              selectedGroupId = allGroups[0]._id;
-              setGroupId(selectedGroupId);
-              setNoGroupsAvailable(false);
-              console.log(
-                "✓ Loaded group ID from database:",
-                selectedGroupId,
-                "- Name:",
-                allGroups[0].groupName,
+          if (currentStudentId) {
+            try {
+              const groupsResponse = await getStudentGroups(currentStudentId);
+              const userGroups = groupsResponse.data || [];
+
+              if (userGroups.length > 0) {
+                const hasPreferredGroup =
+                  preferredGroupId &&
+                  userGroups.some((group) => group._id === preferredGroupId);
+
+                selectedGroupId = hasPreferredGroup
+                  ? preferredGroupId
+                  : userGroups[0]._id;
+                localStorage.setItem("activeGroupId", selectedGroupId);
+              } else if (preferredGroupId) {
+                // For newly created groups that might not list creator in members yet.
+                selectedGroupId = preferredGroupId;
+              } else {
+                console.warn("⚠ No joined group(s) found for current user");
+                setNoGroupsAvailable(true);
+                setError(null);
+                setIsLoading(false);
+                return;
+              }
+            } catch (groupsFetchErr) {
+              console.error("❌ Failed to fetch user groups:", groupsFetchErr);
+              setError(
+                "Failed to load your group(s): " + groupsFetchErr.message,
               );
-            } else {
-              console.warn("⚠ No groups found in database!");
-              setNoGroupsAvailable(true);
-              setError(null);
               setIsLoading(false);
               return;
             }
-          } catch (groupsFetchErr) {
-            console.error("❌ Failed to fetch groups:", groupsFetchErr);
-            setError("Failed to load groups: " + groupsFetchErr.message);
-            setIsLoading(false);
+          } else if (preferredGroupId) {
+            selectedGroupId = preferredGroupId;
+          } else {
+            // Wait for sender identity to be resolved before deciding no groups are available.
+            setIsLoading(true);
             return;
+          }
+
+          if (selectedGroupId) {
+            setGroupId(selectedGroupId);
+            setNoGroupsAvailable(false);
+            console.log("✓ Using selected group ID:", selectedGroupId);
           }
         }
 
-        // Step 2: Fetch detailed group info with members
+        // Step 2: Leave previous room and switch active group context.
+        const previousGroupId = activeGroupRef.current;
+        if (previousGroupId && previousGroupId !== selectedGroupId) {
+          socket.emit("leave_group", { groupId: previousGroupId });
+        }
+        activeGroupRef.current = selectedGroupId;
+
+        // Step 3: Fetch detailed group info with members
         try {
           const groupResponse = await getGroupDetails(selectedGroupId);
           // Backend: { success: true, data: { groupName, members: [...], ... } }
@@ -256,7 +484,7 @@ const GroupChat = () => {
           });
         }
 
-        // Step 3: Fetch group members for mentions
+        // Step 4: Fetch group members for mentions
         try {
           const membersResponse = await getGroupMembers(selectedGroupId);
           // Backend: { success: true, count: X, data: [...members...] }
@@ -268,7 +496,7 @@ const GroupChat = () => {
           console.warn("⚠ Could not fetch group members:", membersErr.message);
         }
 
-        // Step 4: Fetch pinned messages
+        // Step 5: Fetch pinned messages
         try {
           const pinnedResponse = await getPinnedMessages(selectedGroupId);
           const pinnedData = pinnedResponse.data || [];
@@ -277,7 +505,7 @@ const GroupChat = () => {
           console.warn("⚠ Could not fetch pinned messages:", pinnedErr.message);
         }
 
-        // Step 5: Fetch existing messages
+        // Step 6: Fetch existing messages
         try {
           const messagesResponse = await getMessages(selectedGroupId);
           // Backend: { success: true, count: X, data: [...messages...] }
@@ -293,7 +521,6 @@ const GroupChat = () => {
             localStorage.getItem(`removed_messages_${selectedGroupId}`) || "[]",
           );
 
-          // If we got real messages from server, use them instead of dummy
           if (Array.isArray(fetchedMessages) && fetchedMessages.length > 0) {
             // Filter out completely removed messages and mark hidden ones
             const messagesWithHidden = fetchedMessages
@@ -303,20 +530,17 @@ const GroupChat = () => {
                   ? { ...msg, deletedForMe: true }
                   : msg,
               );
-            setMessages(messagesWithHidden);
-            // Save to localStorage as backup
-            localStorage.setItem(
-              `chat_messages_${selectedGroupId}`,
-              JSON.stringify(messagesWithHidden),
-            );
+            // Replace state during hydration so only this group's messages are shown.
+            setMessages(mergeMessages([], messagesWithHidden));
+          } else {
+            setMessages([]);
           }
-          // Otherwise, keep the default dummy messages
         } catch (messagesErr) {
           console.warn("⚠ Could not fetch messages:", messagesErr.message);
-          // Keep the dummy messages that are already in state
+          setMessages([]);
         }
 
-        // Step 6: Join socket room for this group
+        // Step 7: Join socket room for this group
         if (selectedGroupId) {
           socket.emit("join_group", { groupId: selectedGroupId });
           console.log("✅ Joined socket room for group:", selectedGroupId);
@@ -338,56 +562,22 @@ const GroupChat = () => {
       socket.off("user_typing");
       socket.off("user_stop_typing");
     };
-  }, [groupId]);
+  }, [groupId, chatSelectionNonce, senderId, currentUserId]);
 
   /**
    * Socket.IO: Listen for incoming messages
    */
   useEffect(() => {
-    socket.on("receive_message", (message) => {
-      setMessages((prevMessages) => {
-        // Check 1: Exact ID match (for duplicate server messages)
-        const messageExists = prevMessages.some(
-          (msg) => msg._id === message._id,
-        );
-        if (messageExists) {
-          return prevMessages;
-        }
+    const handleIncomingMessage = (message) => {
+      if (!message || String(message.groupId) !== String(groupId)) {
+        return;
+      }
 
-        // Check 2: Match by clientMessageId (for replacing optimistic messages)
-        // This is the PRIMARY deduplication method
-        if (message.clientMessageId) {
-          const optimisticIndex = prevMessages.findIndex(
-            (msg) => msg.clientMessageId === message.clientMessageId,
-          );
+      setMessages((prevMessages) => mergeMessages(prevMessages, [message]));
+    };
 
-          if (optimisticIndex !== -1) {
-            // Found the optimistic message - replace it with the real one
-            const updatedMessages = [...prevMessages];
-            updatedMessages[optimisticIndex] = message; // Replace temp with real message
-
-            // Save to localStorage
-            localStorage.setItem(
-              `chat_messages_${groupId}`,
-              JSON.stringify(updatedMessages),
-            );
-
-            return updatedMessages;
-          }
-        }
-
-        // Otherwise, add as new message
-        const updatedMessages = [...prevMessages, message];
-
-        // Save to localStorage for persistence
-        localStorage.setItem(
-          `chat_messages_${groupId}`,
-          JSON.stringify(updatedMessages),
-        );
-
-        return updatedMessages;
-      });
-    });
+    socket.on("receive_message", handleIncomingMessage);
+    socket.on("receiveMessage", handleIncomingMessage);
 
     socket.on("user_typing", (data) => {
       if (data.senderName !== senderName) {
@@ -413,11 +603,40 @@ const GroupChat = () => {
       );
     });
 
+    socket.on("message_deleted", ({ messageId, deletedAt }) => {
+      if (!messageId) return;
+
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg._id === messageId
+            ? {
+                ...msg,
+                isDeleted: true,
+                text: "[This message was deleted]",
+                reactions: [],
+                mentions: [],
+                replyTo: null,
+                isEdited: false,
+                editedAt: null,
+                isForwarded: false,
+                fileUrl: null,
+                fileName: null,
+                fileType: null,
+                fileSize: null,
+                deletedAt: deletedAt || new Date().toISOString(),
+              }
+            : msg,
+        ),
+      );
+    });
+
     return () => {
       socket.off("receive_message");
+      socket.off("receiveMessage");
       socket.off("user_typing");
       socket.off("user_stop_typing");
       socket.off("reaction_added");
+      socket.off("message_deleted");
     };
   }, [senderName, groupId]);
 
@@ -473,11 +692,20 @@ const GroupChat = () => {
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Check file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        alert("File size must be less than 10MB");
+      if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+        alert(`File size must be less than ${MAX_UPLOAD_SIZE_MB}MB`);
+        e.target.value = "";
         return;
       }
+
+      if (!isAllowedUploadFile(file)) {
+        alert(
+          "Unsupported file type. Allowed: .zip, .rar, .7z, .pdf, .doc, .docx, .jpg, .png",
+        );
+        e.target.value = "";
+        return;
+      }
+
       setRecordedAudioFile(null);
       setSelectedFile(file);
     }
@@ -505,29 +733,28 @@ const GroupChat = () => {
         profilePicture: senderProfilePicture,
         text: messageText.trim(), // Optional caption
         file: selectedFile,
+        replyTo: replyingTo
+          ? {
+              messageId: replyingTo._id || null,
+              senderName: replyingTo.senderName || "",
+              messageType: replyingTo.fileUrl
+                ? String(replyingTo.fileType || "")
+                    .toLowerCase()
+                    .startsWith("image/")
+                  ? "image"
+                  : "file"
+                : "text",
+              messageText:
+                typeof replyingTo.text === "string"
+                  ? replyingTo.text.trim()
+                  : "",
+              fileUrl: replyingTo.fileUrl || null,
+            }
+          : null,
       };
 
       const response = await uploadFile(uploadData);
       const fileMessage = response.data;
-
-      // Optimistic UI update - add file message immediately
-      const optimisticFileMessage = {
-        ...fileMessage,
-        _id: fileMessage._id || `temp-${Date.now()}`,
-        createdAt: fileMessage.createdAt || new Date().toISOString(),
-      };
-
-      setMessages((prevMessages) => {
-        const updatedMessages = [...prevMessages, optimisticFileMessage];
-
-        // Save to localStorage immediately
-        localStorage.setItem(
-          `chat_messages_${groupId}`,
-          JSON.stringify(updatedMessages),
-        );
-
-        return updatedMessages;
-      });
 
       // Broadcast file message to all group members via socket
       socket.emit("send_file", {
@@ -545,7 +772,9 @@ const GroupChat = () => {
       setIsSending(false);
     } catch (err) {
       console.error("Error uploading file:", err);
-      alert("Failed to upload file");
+      const backendMessage =
+        err?.response?.data?.message || err?.message || "Failed to upload file";
+      alert(backendMessage);
       setIsSending(false);
     }
   };
@@ -729,25 +958,28 @@ const GroupChat = () => {
         profilePicture: senderProfilePicture,
         text: messageText.trim(),
         file: recordedAudioFile,
+        replyTo: replyingTo
+          ? {
+              messageId: replyingTo._id || null,
+              senderName: replyingTo.senderName || "",
+              messageType: replyingTo.fileUrl
+                ? String(replyingTo.fileType || "")
+                    .toLowerCase()
+                    .startsWith("image/")
+                  ? "image"
+                  : "file"
+                : "text",
+              messageText:
+                typeof replyingTo.text === "string"
+                  ? replyingTo.text.trim()
+                  : "",
+              fileUrl: replyingTo.fileUrl || null,
+            }
+          : null,
       };
 
       const response = await uploadFile(uploadData);
       const voiceMessage = response.data;
-
-      const optimisticVoiceMessage = {
-        ...voiceMessage,
-        _id: voiceMessage._id || `temp-${Date.now()}`,
-        createdAt: voiceMessage.createdAt || new Date().toISOString(),
-      };
-
-      setMessages((prevMessages) => {
-        const updatedMessages = [...prevMessages, optimisticVoiceMessage];
-        localStorage.setItem(
-          `chat_messages_${groupId}`,
-          JSON.stringify(updatedMessages),
-        );
-        return updatedMessages;
-      });
 
       socket.emit("send_file", {
         groupId,
@@ -788,6 +1020,23 @@ const GroupChat = () => {
       isOwnMessage: data.isOwnMessage,
     });
   };
+
+  const toDeletedMessageState = (message) => ({
+    ...message,
+    isDeleted: true,
+    text: "[This message was deleted]",
+    reactions: [],
+    mentions: [],
+    replyTo: null,
+    isEdited: false,
+    editedAt: null,
+    isForwarded: false,
+    fileUrl: null,
+    fileName: null,
+    fileType: null,
+    fileSize: null,
+    deletedAt: new Date().toISOString(),
+  });
 
   /**
    * Handle edit message
@@ -872,15 +1121,6 @@ const GroupChat = () => {
         // If already deleted, remove completely from chat area
         setMessages(messages.filter((m) => m._id !== messageToDelete));
 
-        // Update localStorage chat messages
-        const updatedMessages = messages.filter(
-          (m) => m._id !== messageToDelete,
-        );
-        localStorage.setItem(
-          `chat_messages_${groupId}`,
-          JSON.stringify(updatedMessages),
-        );
-
         // Store in removed messages list to persist across page refresh
         const removedMessages = JSON.parse(
           localStorage.getItem(`removed_messages_${groupId}`) || "[]",
@@ -896,12 +1136,15 @@ const GroupChat = () => {
         // First delete: mark as deleted
         await deleteMessage(messageToDelete, senderId);
 
+        socket.emit("delete_message", {
+          groupId,
+          messageId: messageToDelete,
+        });
+
         // Update message in local state
         setMessages(
           messages.map((m) =>
-            m._id === messageToDelete
-              ? { ...m, isDeleted: true, text: "[This message was deleted]" }
-              : m,
+            m._id === messageToDelete ? toDeletedMessageState(m) : m,
           ),
         );
       }
@@ -912,9 +1155,7 @@ const GroupChat = () => {
       if (err?.response?.status === 404) {
         setMessages(
           messages.map((m) =>
-            m._id === messageToDelete
-              ? { ...m, isDeleted: true, text: "[This message was deleted]" }
-              : m,
+            m._id === messageToDelete ? toDeletedMessageState(m) : m,
           ),
         );
         setShowDeleteDialog(false);
@@ -1133,11 +1374,6 @@ const GroupChat = () => {
             }
           });
 
-          localStorage.setItem(
-            `chat_messages_${groupId}`,
-            JSON.stringify(mergedMessages),
-          );
-
           return mergedMessages;
         });
       }
@@ -1244,6 +1480,11 @@ const GroupChat = () => {
 
     if (!messageText.trim() && !selectedFile && !recordedAudioFile) return;
 
+    if (!groupId || !senderId || !senderName) {
+      console.warn("Chat identity or group is not ready yet.");
+      return;
+    }
+
     if (recordedAudioFile) {
       handleSendRecordedVoiceMessage();
       return;
@@ -1270,23 +1511,24 @@ const GroupChat = () => {
       text: messageText.trim(),
       createdAt: new Date().toISOString(),
       clientMessageId,
-      replyTo: replyingTo?._id || null,
+      replyTo: replyingTo
+        ? {
+            messageId: replyingTo._id || null,
+            senderName: replyingTo.senderName || "",
+            messageType: replyingTo.fileUrl
+              ? String(replyingTo.fileType || "")
+                  .toLowerCase()
+                  .startsWith("image/")
+                ? "image"
+                : "file"
+              : "text",
+            messageText:
+              typeof replyingTo.text === "string" ? replyingTo.text.trim() : "",
+            fileUrl: replyingTo.fileUrl || null,
+          }
+        : null,
       mentions: mentions.length > 0 ? mentions : [],
     };
-
-    const optimisticMessage = {
-      ...messageData,
-      _id: `temp-${Date.now()}`,
-    };
-
-    setMessages((prevMessages) => {
-      const updatedMessages = [...prevMessages, optimisticMessage];
-      localStorage.setItem(
-        `chat_messages_${groupId}`,
-        JSON.stringify(updatedMessages),
-      );
-      return updatedMessages;
-    });
 
     socket.emit("send_message", messageData);
 
@@ -1345,6 +1587,11 @@ const GroupChat = () => {
             // First delete: mark as deleted
             try {
               await deleteMessage(messageId, senderId);
+
+              socket.emit("delete_message", {
+                groupId,
+                messageId,
+              });
             } catch (err) {
               console.error("Bulk delete failed for message:", messageId, err);
             }
@@ -1358,26 +1605,9 @@ const GroupChat = () => {
           selectedMessageIds.includes(message._id) &&
           isMyMessage(message) &&
           !message.isDeleted
-            ? {
-                ...message,
-                isDeleted: true,
-                text: "[This message was deleted]",
-              }
+            ? toDeletedMessageState(message)
             : message,
         ),
-      );
-
-      // Update localStorage
-      const updatedMessages = messages
-        .filter((m) => !(selectedMessageIds.includes(m._id) && m.isDeleted))
-        .map((m) =>
-          selectedMessageIds.includes(m._id) && isMyMessage(m) && !m.isDeleted
-            ? { ...m, isDeleted: true, text: "[This message was deleted]" }
-            : m,
-        );
-      localStorage.setItem(
-        `chat_messages_${groupId}`,
-        JSON.stringify(updatedMessages),
       );
 
       // Store completely removed messages to persist across page refresh
@@ -1575,9 +1805,22 @@ const GroupChat = () => {
   /**
    * Get file icon based on file type
    */
-  const getFileIcon = (fileType) => {
-    if (!fileType) return "📄";
-    if (fileType.startsWith("image/")) return "🖼️";
+  const getFileIcon = (file) => {
+    const fileType = String(file?.type || "").toLowerCase();
+    const fileExt = getFileExtension(file?.name || "");
+    if (!fileType && !fileExt) return "📄";
+    if (
+      fileType.startsWith("image/") ||
+      [".jpg", ".jpeg", ".png"].includes(fileExt)
+    )
+      return "🖼️";
+    if (
+      fileType === "application/zip" ||
+      fileType === "application/x-rar-compressed" ||
+      fileType === "application/x-7z-compressed" ||
+      [".zip", ".rar", ".7z"].includes(fileExt)
+    )
+      return "📦";
     if (fileType === "application/pdf") return "📕";
     if (fileType.includes("word")) return "📘";
     if (fileType.includes("excel")) return "📗";
@@ -1585,10 +1828,28 @@ const GroupChat = () => {
     return "📄";
   };
 
+  const truncateWords = (text, wordCount = 3) => {
+    if (!text) return "(No text)";
+
+    const words = text.trim().split(/\s+/);
+    if (words.length <= wordCount) {
+      return text.trim();
+    }
+
+    return `${words.slice(0, wordCount).join(" ")}...`;
+  };
+
   const getReplyTargetMessage = (message) => {
     if (!message?.replyTo) return null;
 
-    if (typeof message.replyTo === "object" && message.replyTo.text) {
+    if (
+      typeof message.replyTo === "object" &&
+      (message.replyTo.messageId ||
+        message.replyTo.messageText ||
+        message.replyTo.fileUrl ||
+        message.replyTo.messageType ||
+        message.replyTo.text)
+    ) {
       return message.replyTo;
     }
 
@@ -1648,12 +1909,26 @@ const GroupChat = () => {
       )
     ) {
       try {
-        await leaveGroup(groupId, senderId);
+        const memberId =
+          currentUserId ||
+          senderId ||
+          localStorage.getItem("userId") ||
+          localStorage.getItem("currentUserId") ||
+          null;
+
+        if (!memberId) {
+          alert(
+            "Unable to leave group: missing user session. Please sign in again.",
+          );
+          return;
+        }
+
+        const currentGroupId = groupId || localStorage.getItem("activeGroupId");
+
+        await leaveGroup(currentGroupId || groupId, memberId);
         console.log("Left group successfully");
-        alert("You have left the group. Redirecting...");
-        setShowGroupDetails(false);
-        // Optionally redirect to a different page
-        // window.location.href = "/groups";
+        resetGroupViewAfterLeave(currentGroupId || groupId);
+        alert("You have left the group.");
       } catch (error) {
         console.error("Error leaving group:", error);
         alert("Failed to leave group");
@@ -1681,7 +1956,9 @@ const GroupChat = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-100">
+      <div
+        className={`flex items-center justify-center ${screenHeightClass} bg-gray-100 overflow-x-hidden`}
+      >
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600 dark:text-gray-400">
@@ -1694,7 +1971,9 @@ const GroupChat = () => {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
+      <div
+        className={`flex items-center justify-center ${screenHeightClass} bg-gray-100 dark:bg-gray-900 overflow-x-hidden`}
+      >
         <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg dark:shadow-2xl max-w-md border border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-bold text-red-600 dark:text-red-400 mb-4">
             Error
@@ -1708,12 +1987,12 @@ const GroupChat = () => {
               <li>
                 Run:{" "}
                 <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded text-blue-900 dark:text-blue-200">
-                  node backend/seedDummyData.js
+                  npm run dev
                 </code>
               </li>
-              <li>Copy the Group ID from terminal output</li>
-              <li>Update DUMMY_GROUP_ID in GroupChat.jsx</li>
-              <li>Refresh this page</li>
+              <li>Sign in and join an existing group</li>
+              <li>Open Group Details and click Open Group Chat</li>
+              <li>Refresh this page after backend is running</li>
             </ol>
           </div>
         </div>
@@ -1724,10 +2003,14 @@ const GroupChat = () => {
   // Show error state
   if (error) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div
+        className={`flex ${screenHeightClass} items-center justify-center bg-gray-100 dark:bg-gray-900 overflow-x-hidden`}
+      >
         <div className="rounded-lg bg-white dark:bg-gray-800 p-8 text-center max-w-md shadow-lg">
           <div className="text-red-500 dark:text-red-400 text-3xl mb-4">⚠️</div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Error Loading Chat</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            Error Loading Chat
+          </h2>
           <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
           <button
             onClick={() => window.location.reload()}
@@ -1743,7 +2026,9 @@ const GroupChat = () => {
   // Show loading state
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div
+        className={`flex ${screenHeightClass} items-center justify-center bg-gray-100 dark:bg-gray-900 overflow-x-hidden`}
+      >
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">Loading chat...</p>
@@ -1755,58 +2040,67 @@ const GroupChat = () => {
   // Show "no groups available" state
   if (noGroupsAvailable) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div
+        className={`flex ${screenHeightClass} items-center justify-center bg-gray-100 dark:bg-gray-900 overflow-x-hidden`}
+      >
         <div className="rounded-lg bg-white dark:bg-gray-800 p-8 text-center max-w-md shadow-lg">
-          <div className="text-gray-400 dark:text-gray-500 text-3xl mb-4">📭</div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Groups Available</h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-2">You haven't joined any groups yet.</p>
-          <p className="text-gray-500 dark:text-gray-500 text-sm mb-6">Create or join a group to start chatting!</p>
-          <a
-            href="/"
-            className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
-          >
-            Go to Groups
-          </a>
+          <p className="text-gray-700 dark:text-gray-300 text-base font-medium">
+            You are not part of any group yet. Please join a group.
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`flex h-screen relative w-full ${isDarkMode ? 'bg-gray-900' : 'bg-gray-100'}`}>
+    <div
+      className={`flex flex-col ${screenHeightClass} relative w-full max-w-full min-w-0 box-border overflow-x-hidden ${isDarkMode ? "bg-gray-900" : "bg-gray-100"}`}
+    >
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col w-full">
+      <div className="flex-1 flex flex-col w-full max-w-full min-w-0 min-h-0 overflow-hidden box-border">
         {/* Chat Header */}
-        <div className={`border-b px-6 py-1 shadow-sm ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <button
-            onClick={() => setShowGroupDetails(true)}
-            className="flex items-center space-x-2 w-full text-left rounded-lg p-1 transition-colors duration-200"
-          >
-            <div className="bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center overflow-hidden flex-shrink-0">
-              {groupDetails?.profilePicture ? (
-                <img
-                  src={groupDetails.profilePicture}
-                  alt={groupDetails?.groupName || "Group Chat"}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <FaUsers />
-              )}
-            </div>
-            <div>
-              <h1 className={`text-lg font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>
-                {groupDetails?.groupName || "Group Chat"}
-              </h1>
-              <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                {groupDetails?.members?.length || 0} members
-              </p>
-            </div>
-          </button>
+        <div
+          className={`sticky top-0 z-10 border-b ${chatHorizontalPadding} h-14 shadow-sm ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+        >
+          <div className="h-full flex items-center justify-between gap-2">
+            <button
+              onClick={() => setShowGroupDetails(true)}
+              className="flex items-center space-x-2 w-full text-left rounded-lg p-1 transition-colors duration-200 min-w-0"
+            >
+              <div className="bg-blue-600 text-white rounded-full w-9 h-9 flex items-center justify-center overflow-hidden flex-shrink-0">
+                {groupDetails?.profilePicture ? (
+                  <img
+                    src={groupDetails.profilePicture}
+                    alt={groupDetails?.groupName || "Group Chat"}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <FaUsers />
+                )}
+              </div>
+              <div className="min-w-0">
+                <h1
+                  className={`text-base font-semibold truncate ${isDarkMode ? "text-gray-100" : "text-gray-800"}`}
+                >
+                  {groupDetails?.groupName || "Group Chat"}
+                </h1>
+                <p
+                  className={`text-xs truncate ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
+                >
+                  {groupDetails?.members?.length || 0} members
+                </p>
+              </div>
+            </button>
+          </div>
         </div>
 
         {selectionMode && (
-          <div className={`px-6 py-2 border-b flex items-center justify-between ${isDarkMode ? 'bg-indigo-900/20 border-indigo-700' : 'bg-indigo-50 border-indigo-200'}`}>
-            <p className={`text-sm ${isDarkMode ? 'text-indigo-300' : 'text-indigo-700'}`}>
+          <div
+            className={`sticky top-14 z-10 px-6 py-2 border-b flex items-center justify-between ${isEmbeddedMobilePreview ? "bg-indigo-950/90 border-indigo-700 px-3 py-2" : isDarkMode ? "bg-indigo-900/20 border-indigo-700" : "bg-indigo-50 border-indigo-200"}`}
+          >
+            <p
+              className={`text-sm ${isDarkMode ? "text-indigo-300" : "text-indigo-700"}`}
+            >
               {selectedMessageIds.length} selected
             </p>
             <div className="flex gap-2">
@@ -1845,17 +2139,21 @@ const GroupChat = () => {
 
         {/* Persistent Pinned Messages Strip */}
         {pinnedMessages.length > 0 && (
-          <div className="border-b border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-2">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-amber-600 dark:text-amber-400">📌</span>
-                <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-wide">
+          <div
+            className={`sticky top-14 z-10 border-b ${isEmbeddedMobilePreview ? "border-amber-700 bg-amber-950/95 px-3 py-1" : "border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-2"}`}
+          >
+            <div className="flex items-center justify-between mb-0.5">
+              <div className="flex items-center gap-1.5">
+                <span className="text-amber-600 dark:text-amber-400 text-xs leading-none">
+                  📌
+                </span>
+                <p className="text-[9px] font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-wide leading-none">
                   Pinned Messages ({pinnedMessages.length}/3)
                 </p>
               </div>
               <button
                 onClick={() => setShowPinnedPanel((prev) => !prev)}
-                className="text-xs px-2 py-1 rounded-md bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-700 transition"
+                className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-700 transition leading-none"
               >
                 {showPinnedPanel ? "Compact" : "Expand"}
               </button>
@@ -1881,11 +2179,11 @@ const GroupChat = () => {
                     className={`text-left rounded-md border border-amber-300 dark:border-amber-600 bg-white/90 dark:bg-gray-800/90 hover:bg-amber-100 dark:hover:bg-amber-800/30 transition p-2 ${showPinnedPanel ? "w-full" : "min-w-[220px] max-w-[260px]"}`}
                     title="Jump to pinned message"
                   >
-                    <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-300 truncate">
+                    <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 truncate mb-0.5 leading-none">
                       {msg.senderName || "Pinned message"}
                     </p>
-                    <p className="text-xs text-gray-700 dark:text-gray-200 line-clamp-2">
-                      {msg.text || "(No text)"}
+                    <p className="text-[10px] text-gray-700 dark:text-gray-200 leading-tight">
+                      {truncateWords(msg.text, 3)}
                     </p>
                   </button>
                 ))}
@@ -1895,10 +2193,15 @@ const GroupChat = () => {
         )}
 
         {/* Messages Container */}
-        <div className={`app-scrollbar flex-1 overflow-y-auto px-6 py-4 space-y-4 relative ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
+        <div
+          className={`app-scrollbar flex-1 min-h-0 overflow-y-auto overflow-x-hidden ${chatHorizontalPadding} py-4 space-y-4 relative w-full max-w-full box-border ${isDarkMode ? "bg-gray-900" : "bg-white"}`}
+          style={{ overscrollBehavior: "contain" }}
+        >
           {messages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
-              <div className={`text-center ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+              <div
+                className={`text-center ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}
+              >
                 <p className="text-lg">No messages yet</p>
                 <p className="text-sm">Start the conversation!</p>
               </div>
@@ -1928,6 +2231,7 @@ const GroupChat = () => {
                     repliedMessage={getReplyTargetMessage(message)}
                     isOwnMessage={isMyMessage(message)}
                     currentUserId={senderId}
+                    isMobilePreview={isEmbeddedMobilePreview}
                     onContextMenu={handleMessageContextMenu}
                     onClick={handleMessageClick}
                     onReactionClick={handleReactionClick}
@@ -1939,15 +2243,19 @@ const GroupChat = () => {
           {/* Typing Indicator */}
           {typing && (
             <div className="flex justify-start">
-              <div className={`rounded-lg px-4 py-2 shadow-sm ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
+              <div
+                className={`rounded-lg px-4 py-2 shadow-sm ${isDarkMode ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-500"}`}
+              >
                 <div className="flex space-x-1">
-                  <div className={`w-2 h-2 rounded-full animate-bounce ${isDarkMode ? 'bg-gray-500' : 'bg-gray-400'}`}></div>
                   <div
-                    className={`w-2 h-2 rounded-full animate-bounce ${isDarkMode ? 'bg-gray-500' : 'bg-gray-400'}`}
+                    className={`w-2 h-2 rounded-full animate-bounce ${isDarkMode ? "bg-gray-500" : "bg-gray-400"}`}
+                  ></div>
+                  <div
+                    className={`w-2 h-2 rounded-full animate-bounce ${isDarkMode ? "bg-gray-500" : "bg-gray-400"}`}
                     style={{ animationDelay: "0.1s" }}
                   ></div>
                   <div
-                    className={`w-2 h-2 rounded-full animate-bounce ${isDarkMode ? 'bg-gray-500' : 'bg-gray-400'}`}
+                    className={`w-2 h-2 rounded-full animate-bounce ${isDarkMode ? "bg-gray-500" : "bg-gray-400"}`}
                     style={{ animationDelay: "0.2s" }}
                   ></div>
                 </div>
@@ -1959,21 +2267,29 @@ const GroupChat = () => {
         </div>
 
         {/* Message Input Area */}
-        <div className={`border-t px-6 py-4 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <div
+          className={`sticky bottom-0 z-10 border-t ${chatHorizontalPadding} py-4 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+        >
           {/* Reply Preview */}
           {replyingTo && (
-            <div className={`mb-3 border-l-4 border-blue-500 rounded px-4 py-3 flex items-start justify-between ${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-50'}`}>
+            <div
+              className={`mb-3 border-l-4 border-blue-500 rounded px-4 py-3 flex items-start justify-between ${isDarkMode ? "bg-blue-900/30" : "bg-blue-50"}`}
+            >
               <div className="flex-1">
-                <p className={`text-xs font-semibold mb-1 ${isDarkMode ? 'text-blue-300' : 'text-blue-800'}`}>
+                <p
+                  className={`text-xs font-semibold mb-1 ${isDarkMode ? "text-blue-300" : "text-blue-800"}`}
+                >
                   Replying to {replyingTo.senderName}
                 </p>
-                <p className={`text-sm line-clamp-2 ${isDarkMode ? 'text-blue-200' : 'text-blue-700'}`}>
+                <p
+                  className={`text-sm line-clamp-2 ${isDarkMode ? "text-blue-200" : "text-blue-700"}`}
+                >
                   {replyingTo.text}
                 </p>
               </div>
               <button
                 onClick={() => setReplyingTo(null)}
-                className={`ml-2 ${isDarkMode ? 'text-blue-400 hover:text-blue-200' : 'text-blue-600 hover:text-blue-800'}`}
+                className={`ml-2 ${isDarkMode ? "text-blue-400 hover:text-blue-200" : "text-blue-600 hover:text-blue-800"}`}
               >
                 <FaTimes size={16} />
               </button>
@@ -1982,9 +2298,13 @@ const GroupChat = () => {
 
           {/* Edit Mode Indicator */}
           {editingMessage && (
-            <div className={`mb-3 border-l-4 border-purple-500 rounded px-4 py-3 flex items-start justify-between ${isDarkMode ? 'bg-purple-900/30' : 'bg-purple-50'}`}>
+            <div
+              className={`mb-3 border-l-4 border-purple-500 rounded px-4 py-3 flex items-start justify-between ${isDarkMode ? "bg-purple-900/30" : "bg-purple-50"}`}
+            >
               <div className="flex-1">
-                <p className={`text-xs font-semibold mb-1 ${isDarkMode ? 'text-purple-300' : 'text-purple-800'}`}>
+                <p
+                  className={`text-xs font-semibold mb-1 ${isDarkMode ? "text-purple-300" : "text-purple-800"}`}
+                >
                   Editing message
                 </p>
               </div>
@@ -1993,7 +2313,7 @@ const GroupChat = () => {
                   setEditingMessage(null);
                   setMessageText("");
                 }}
-                className={`ml-2 ${isDarkMode ? 'text-purple-400 hover:text-purple-200' : 'text-purple-600 hover:text-purple-800'}`}
+                className={`ml-2 ${isDarkMode ? "text-purple-400 hover:text-purple-200" : "text-purple-600 hover:text-purple-800"}`}
               >
                 <FaTimes size={16} />
               </button>
@@ -2004,9 +2324,7 @@ const GroupChat = () => {
           {selectedFile && (
             <div className="mb-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-400/30 rounded-lg p-3 flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <span className="text-2xl">
-                  {getFileIcon(selectedFile.type)}
-                </span>
+                <span className="text-2xl">{getFileIcon(selectedFile)}</span>
                 <div>
                   <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
                     {selectedFile.name}
@@ -2034,7 +2352,7 @@ const GroupChat = () => {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className={`rounded-full p-3 transition ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
+              className={`rounded-full p-3 transition ${isDarkMode ? "bg-gray-700 hover:bg-gray-600 text-gray-300" : "bg-gray-200 hover:bg-gray-300 text-gray-700"}`}
               disabled={isSending}
             >
               <FaPaperclip size={18} />
@@ -2044,11 +2362,13 @@ const GroupChat = () => {
               ref={fileInputRef}
               onChange={handleFileSelect}
               className="hidden"
-              accept="image/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+              accept=".zip,.rar,.7z,.pdf,.doc,.docx,.jpg,.png"
             />
 
             {/* Message Input */}
-            <div className={`flex-1 rounded-full px-4 py-2 relative ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+            <div
+              className={`flex-1 rounded-full px-4 py-2 relative ${isDarkMode ? "bg-gray-700" : "bg-gray-100"}`}
+            >
               {/* Emoji Picker */}
               <EmojiPicker
                 show={showEmojiPicker}
@@ -2163,7 +2483,7 @@ const GroupChat = () => {
                           ? "Edit message..."
                           : "Type a message... @ to mention"
                       }
-                      className={`flex-1 bg-transparent outline-none placeholder-opacity-70 ${isDarkMode ? 'text-gray-200 placeholder-gray-400' : 'text-gray-800 placeholder-gray-500'}`}
+                      className={`flex-1 bg-transparent border-none outline-none ring-0 focus:outline-none focus:ring-0 placeholder-opacity-70 ${isDarkMode ? "text-gray-200 placeholder-gray-400" : "text-gray-800 placeholder-gray-500"}`}
                       disabled={isSending}
                     />
 
@@ -2171,7 +2491,7 @@ const GroupChat = () => {
                     <button
                       type="button"
                       onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                      className={`transition ${isDarkMode ? 'text-gray-400 hover:text-yellow-400' : 'text-gray-500 hover:text-yellow-500'}`}
+                      className={`transition ${isDarkMode ? "text-gray-400 hover:text-yellow-400" : "text-gray-500 hover:text-yellow-500"}`}
                       disabled={isSending}
                     >
                       <FaSmile size={20} />
@@ -2180,7 +2500,7 @@ const GroupChat = () => {
                     <button
                       type="button"
                       onClick={handleStartVoiceRecording}
-                      className={`transition ${isDarkMode ? 'text-gray-400 hover:text-blue-400' : 'text-gray-500 hover:text-blue-500'}`}
+                      className={`transition ${isDarkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-blue-500"}`}
                       disabled={isSending || !!selectedFile || !!editingMessage}
                       title="Record voice"
                     >
@@ -2250,14 +2570,21 @@ const GroupChat = () => {
                   !isRecording) ||
                 isSending
               }
-              className={`rounded-full p-3 transition ${
+              className={`${isEmbeddedMobilePreview ? "w-11 h-11 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-500 disabled:text-white/90 flex items-center justify-center flex-shrink-0" : "rounded-full p-3"} transition ${
+                !isEmbeddedMobilePreview &&
                 !messageText.trim() &&
                 !selectedFile &&
                 !editingMessage &&
                 !recordedAudioFile &&
                 !isRecording
-                  ? isDarkMode ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : isDarkMode ? 'bg-blue-700 hover:bg-blue-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  ? isDarkMode
+                    ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : !isEmbeddedMobilePreview
+                    ? isDarkMode
+                      ? "bg-blue-700 hover:bg-blue-600 text-white"
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                    : ""
               }`}
               title="Send message or voice"
             >
@@ -2551,8 +2878,8 @@ const GroupChat = () => {
         currentUserId={senderId}
         onUpdateGroup={handleUpdateGroup}
         onClearChat={handleClearChat}
-        onLeaveGroup={handleLeaveGroup}
         onStarredMessageClick={handleStarredMessageClick}
+        isEmbeddedPreview={isEmbeddedMobilePreview}
       />
     </div>
   );

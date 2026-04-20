@@ -62,6 +62,11 @@ const userSchema = new mongoose.Schema(
       default: [],
       trim: true
     },
+    achievements: {
+      type: [String],
+      default: [],
+      trim: true
+    },
     faculty: {
       type: String,
       trim: true,

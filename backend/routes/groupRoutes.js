@@ -1,7 +1,7 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const groupController = require('../controllers/groupController');
-const authMiddleware = require('../middleware/authMiddleware');
+const groupController = require("../controllers/groupController");
+const authMiddleware = require("../middleware/authMiddleware");
 
 /**
  * Group Routes
@@ -13,12 +13,13 @@ const authMiddleware = require('../middleware/authMiddleware');
  * DELETE /groups/:id     - Archive group
  */
 
-router.post('/', groupController.createGroup);
-router.get('/', groupController.getAllGroups);
-router.get('/my/members', authMiddleware, groupController.getMyMemberGroups);
-router.get('/code/:code', groupController.getGroupByCode);
-router.get('/:id', groupController.getGroupById);
-router.put('/:id', groupController.updateGroup);
-router.delete('/:id', groupController.archiveGroup);
+router.post("/", groupController.createGroup);
+router.get("/", groupController.getAllGroups);
+router.get("/my/members", authMiddleware, groupController.getMyMemberGroups);
+router.get("/code/:code", groupController.getGroupByCode);
+router.get("/:id", groupController.getGroupById);
+router.post("/:id/join", groupController.joinGroup);
+router.put("/:id", groupController.updateGroup);
+router.delete("/:id", groupController.archiveGroup);
 
 module.exports = router;

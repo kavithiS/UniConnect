@@ -16,7 +16,8 @@ function LoginPage({ onAuthSuccess }) {
     setLoading(true);
 
     try {
-      const data = await loginUser({ email, password });
+      const normalizedEmail = email.trim().toLowerCase();
+      const data = await loginUser({ email: normalizedEmail, password });
       setAuthToken(data.token);
       onAuthSuccess(data.user);
 

@@ -1,5 +1,5 @@
-const User = require('../models/User');
-const mongoose = require('mongoose');
+const User = require("../models/User");
+const mongoose = require("mongoose");
 
 /**
  * Create a new user
@@ -13,28 +13,28 @@ exports.createUser = async (req, res) => {
     if (!name) {
       return res.status(400).json({
         success: false,
-        message: 'User name is required'
+        message: "User name is required",
       });
     }
 
     // Create user
     const user = new User({
       name,
-      skills: skills || []
+      skills: skills || [],
     });
 
     await user.save();
 
     res.status(201).json({
       success: true,
-      message: 'User created successfully',
-      data: user
+      message: "User created successfully",
+      data: user,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Error creating user',
-      error: error.message
+      message: "Error creating user",
+      error: error.message,
     });
   }
 };
@@ -50,13 +50,13 @@ exports.getAllUsers = async (req, res) => {
     res.status(200).json({
       success: true,
       count: users.length,
-      data: users
+      data: users,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching users',
-      error: error.message
+      message: "Error fetching users",
+      error: error.message,
     });
   }
 };
@@ -72,7 +72,7 @@ exports.getUserById = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid user id format'
+        message: "Invalid user id format",
       });
     }
 
@@ -80,19 +80,19 @@ exports.getUserById = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
     res.status(200).json({
       success: true,
-      data: user
+      data: user,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Error fetching user',
-      error: error.message
+      message: "Error fetching user",
+      error: error.message,
     });
   }
 };
@@ -109,26 +109,26 @@ exports.updateUser = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       id,
       { name, skills },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
     res.status(200).json({
       success: true,
-      message: 'User updated successfully',
-      data: user
+      message: "User updated successfully",
+      data: user,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Error updating user',
-      error: error.message
+      message: "Error updating user",
+      error: error.message,
     });
   }
 };
@@ -145,20 +145,20 @@ exports.deleteUser = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
     res.status(200).json({
       success: true,
-      message: 'User deleted successfully',
-      data: user
+      message: "User deleted successfully",
+      data: user,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Error deleting user',
-      error: error.message
+      message: "Error deleting user",
+      error: error.message,
     });
   }
 };
@@ -169,8 +169,11 @@ exports.deleteUser = async (req, res) => {
  */
 exports.seedSampleData = async (req, res) => {
   try {
-    const Group = require('../models/Group');
-    const JoinRequest = require('../models/JoinRequest');
+    const bcrypt = require("bcryptjs");
+    const Group = require("../models/Group");
+    const JoinRequest = require("../models/JoinRequest");
+    const demoPassword = "TempPass123!";
+    const passwordHash = await bcrypt.hash(demoPassword, 10);
 
     // Check if sample data already exists
     const existingUsers = await User.countDocuments();
@@ -180,82 +183,102 @@ exports.seedSampleData = async (req, res) => {
       const allRequests = await JoinRequest.find();
       return res.status(200).json({
         success: true,
-        message: 'Sample data already exists',
+        message: "Sample data already exists",
         stats: {
           users: allUsers.length,
           groups: allGroups.length,
-          requests: allRequests.length
+          requests: allRequests.length,
         },
         data: {
           sampleUserId: allUsers[0]?._id,
-          sampleGroupId: allGroups[0]?._id
-        }
+          sampleGroupId: allGroups[0]?._id,
+        },
       });
     }
 
     // Create sample users
     const users = await User.insertMany([
       {
-        name: 'Alice Johnson',
-        email: 'alice@example.com',
-        skills: ['React', 'Node.js', 'PostgreSQL', 'Project Management', 'UI/UX']
+        name: "Alice Johnson",
+        email: "alice@example.com",
+        passwordHash,
+        profileCompleted: true,
+        skills: [
+          "React",
+          "Node.js",
+          "PostgreSQL",
+          "Project Management",
+          "UI/UX",
+        ],
       },
       {
-        name: 'Bob Smith',
-        email: 'bob@example.com',
-        skills: ['React', 'Vue.js', 'JavaScript', 'Python', 'REST APIs']
+        name: "Bob Smith",
+        email: "bob@example.com",
+        passwordHash,
+        profileCompleted: true,
+        skills: ["React", "Vue.js", "JavaScript", "Python", "REST APIs"],
       },
       {
-        name: 'Charlie Davis',
-        email: 'charlie@example.com',
-        skills: ['Figma', 'UI/UX', 'Graphic Design', 'Prototyping']
+        name: "Charlie Davis",
+        email: "charlie@example.com",
+        passwordHash,
+        profileCompleted: true,
+        skills: ["Figma", "UI/UX", "Graphic Design", "Prototyping"],
       },
       {
-        name: 'Diana Wilson',
-        email: 'diana@example.com',
-        skills: ['Java', 'Spring Boot', 'Databases', 'Microservices']
+        name: "Diana Wilson",
+        email: "diana@example.com",
+        passwordHash,
+        profileCompleted: true,
+        skills: ["Java", "Spring Boot", "Databases", "Microservices"],
       },
       {
-        name: 'Eve Martinez',
-        email: 'eve@example.com',
-        skills: ['React', 'HTML/CSS', 'JavaScript']
-      }
+        name: "Eve Martinez",
+        email: "eve@example.com",
+        passwordHash,
+        profileCompleted: true,
+        skills: ["React", "HTML/CSS", "JavaScript"],
+      },
     ]);
 
     // Create sample groups
     const groups = await Group.insertMany([
       {
-        title: 'Web App Development Team',
-        description: 'Building a modern web application with React and Node.js. We need developers experienced in full-stack development.',
-        requiredSkills: ['React', 'Node.js', 'REST APIs'],
+        title: "Web App Development Team",
+        description:
+          "Building a modern web application with React and Node.js. We need developers experienced in full-stack development.",
+        requiredSkills: ["React", "Node.js", "REST APIs"],
         members: [users[0]._id, users[1]._id],
         memberLimit: 5,
-        status: 'active'
+        status: "active",
       },
       {
-        title: 'Mobile App Project',
-        description: 'Creating a cross-platform mobile application. Looking for developers with React Native experience.',
-        requiredSkills: ['React Native', 'JavaScript', 'Mobile Dev'],
+        title: "Mobile App Project",
+        description:
+          "Creating a cross-platform mobile application. Looking for developers with React Native experience.",
+        requiredSkills: ["React Native", "JavaScript", "Mobile Dev"],
         members: [users[2]._id],
         memberLimit: 4,
-        status: 'active'
+        status: "active",
       },
       {
-        title: 'UI/UX Design Squad',
-        description: 'Designing intuitive user interfaces for digital products. Figma expertise required.',
-        requiredSkills: ['Figma', 'UI/UX', 'Prototyping'],
+        title: "UI/UX Design Squad",
+        description:
+          "Designing intuitive user interfaces for digital products. Figma expertise required.",
+        requiredSkills: ["Figma", "UI/UX", "Prototyping"],
         members: [users[2]._id],
         memberLimit: 3,
-        status: 'active'
+        status: "active",
       },
       {
-        title: 'Backend Optimization Group',
-        description: 'Optimizing backend performance. Looking for experienced backend engineers.',
-        requiredSkills: ['Java', 'Databases', 'Spring Boot'],
+        title: "Backend Optimization Group",
+        description:
+          "Optimizing backend performance. Looking for experienced backend engineers.",
+        requiredSkills: ["Java", "Databases", "Spring Boot"],
         members: [users[3]._id],
         memberLimit: 4,
-        status: 'active'
-      }
+        status: "active",
+      },
     ]);
 
     // Create sample join requests
@@ -263,42 +286,43 @@ exports.seedSampleData = async (req, res) => {
       {
         userId: users[4]._id, // Eve
         groupId: groups[0]._id, // Web App Dev
-        requestType: 'student-request',
-        status: 'pending',
+        requestType: "student-request",
+        status: "pending",
         matchScore: 66.67,
-        matchedSkills: ['React', 'JavaScript'],
-        missingSkills: ['Node.js', 'REST APIs']
+        matchedSkills: ["React", "JavaScript"],
+        missingSkills: ["Node.js", "REST APIs"],
       },
       {
         userId: users[1]._id, // Bob
         groupId: groups[1]._id, // Mobile App
-        requestType: 'student-request',
-        status: 'pending',
+        requestType: "student-request",
+        status: "pending",
         matchScore: 33.33,
-        matchedSkills: ['JavaScript'],
-        missingSkills: ['React Native', 'Mobile Dev']
-      }
+        matchedSkills: ["JavaScript"],
+        missingSkills: ["React Native", "Mobile Dev"],
+      },
     ]);
 
     res.status(201).json({
       success: true,
-      message: '✅ Sample data created successfully!',
+      message: "✅ Sample data created successfully!",
       stats: {
         users: users.length,
         groups: groups.length,
-        requests: 2
+        requests: 2,
       },
       testData: {
         sampleUserId: users[4]._id, // Eve Martinez for student view
         sampleGroupId: groups[0]._id, // Web App Dev for leader view
-        instructions: 'Use these IDs in the Smart Request & Invitation Hub to test the features'
-      }
+        instructions:
+          "Use these IDs in the Smart Request & Invitation Hub to test the features",
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Error seeding sample data',
-      error: error.message
+      message: "Error seeding sample data",
+      error: error.message,
     });
   }
 };

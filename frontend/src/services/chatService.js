@@ -21,7 +21,9 @@ export const FILE_BASE_URL = getBackendBaseUrl();
  */
 export const getMessages = async (groupId) => {
   try {
-    const response = await axios.get(`${getChatApiBaseUrl()}/messages/${groupId}`);
+    const response = await axios.get(
+      `${getChatApiBaseUrl()}/history/${groupId}`,
+    );
     return response.data;
   } catch (error) {
     console.error("Error fetching messages:", error);
@@ -36,7 +38,10 @@ export const getMessages = async (groupId) => {
  */
 export const sendMessage = async (messageData) => {
   try {
-    const response = await axios.post(`${getChatApiBaseUrl()}/message`, messageData);
+    const response = await axios.post(
+      `${getChatApiBaseUrl()}/message`,
+      messageData,
+    );
     return response.data;
   } catch (error) {
     console.error("Error sending message:", error);
@@ -61,13 +66,20 @@ export const uploadFile = async (uploadData) => {
     if (uploadData.text) {
       formData.append("text", uploadData.text);
     }
+    if (uploadData.replyTo) {
+      formData.append("replyTo", JSON.stringify(uploadData.replyTo));
+    }
     formData.append("file", uploadData.file);
 
-    const response = await axios.post(`${getChatApiBaseUrl()}/upload`, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
+    const response = await axios.post(
+      `${getChatApiBaseUrl()}/upload`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       },
-    });
+    );
     return response.data;
   } catch (error) {
     console.error("Error uploading file:", error);
@@ -101,7 +113,9 @@ export const getGroupDetails = async (groupId) => {
  */
 export const getStudentGroups = async (studentId) => {
   try {
-    const response = await axios.get(`${getChatApiBaseUrl()}/groups/${studentId}`);
+    const response = await axios.get(
+      `${getChatApiBaseUrl()}/student-groups/${studentId}`,
+    );
     return response.data;
   } catch (error) {
     console.error("Error fetching student groups:", error);
@@ -144,10 +158,13 @@ export const downloadFile = (fileUrl, fileName) => {
  */
 export const editMessage = async (messageId, text, senderId) => {
   try {
-    const response = await axios.put(`${getChatApiBaseUrl()}/message/${messageId}`, {
-      text,
-      senderId,
-    });
+    const response = await axios.put(
+      `${getChatApiBaseUrl()}/message/${messageId}`,
+      {
+        text,
+        senderId,
+      },
+    );
     return response.data;
   } catch (error) {
     console.error("Error editing message:", error);
@@ -246,7 +263,9 @@ export const starMessage = async (messageId, userId) => {
  */
 export const getPinnedMessages = async (groupId) => {
   try {
-    const response = await axios.get(`${getChatApiBaseUrl()}/group/${groupId}/pinned`);
+    const response = await axios.get(
+      `${getChatApiBaseUrl()}/group/${groupId}/pinned`,
+    );
     return response.data;
   } catch (error) {
     console.error("Error fetching pinned messages:", error);

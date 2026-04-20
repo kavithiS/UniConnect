@@ -45,45 +45,61 @@ const storage = multer.diskStorage({
 
 /**
  * File Filter - Accept only specific file types
- * Allowed: PDF, Images, Office docs, text files, and audio files
+ * Allowed: Images, Audio, PDF, DOC/DOCX, ZIP/RAR/7Z
  */
 const fileFilter = (req, file, cb) => {
   const normalizedMimeType = (file.mimetype || "")
     .split(";")[0]
     .trim()
     .toLowerCase();
+  const normalizedFileName = String(file.originalname || "").toLowerCase();
 
-  const allowedTypes = [
-    "image/jpeg",
-    "image/jpg",
-    "image/png",
-    "image/gif",
-    "image/webp",
+  const allowedMimeTypes = new Set([
     "application/pdf",
     "application/msword", // .doc
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
-    "application/vnd.ms-excel", // .xls
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
-    "application/vnd.ms-powerpoint", // .ppt
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation", // .pptx
-    "text/plain", // .txt
-    "audio/webm",
-    "audio/ogg",
-    "audio/mpeg", // .mp3
-    "audio/mp4", // .m4a
-    "audio/wav",
-    "audio/x-wav",
-    "audio/aac",
-  ];
+    "application/zip", // .zip
+    "application/x-zip-compressed", // .zip (windows variants)
+    "application/x-rar-compressed", // .rar
+    "application/vnd.rar", // .rar
+    "application/x-7z-compressed", // .7z
+  ]);
+  const allowedExtensions = new Set([
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".zip",
+    ".rar",
+    ".7z",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webm",
+    ".ogg",
+    ".mp3",
+    ".wav",
+    ".m4a",
+    ".aac",
+  ]);
 
+  const isAllowedImage = normalizedMimeType.startsWith("image/");
   const isAllowedAudio = normalizedMimeType.startsWith("audio/");
+  const isAllowedByMime = allowedMimeTypes.has(normalizedMimeType);
+  const isAllowedByExtension = [...allowedExtensions].some((ext) =>
+    normalizedFileName.endsWith(ext),
+  );
 
-  if (allowedTypes.includes(normalizedMimeType) || isAllowedAudio) {
+  if (
+    isAllowedImage ||
+    isAllowedAudio ||
+    isAllowedByMime ||
+    isAllowedByExtension
+  ) {
     cb(null, true); // Accept file
   } else {
     cb(
       new Error(
-        `Invalid file type (${file.mimetype}). Only images, documents, text, and audio files are allowed.`,
+        `Invalid file type (${file.mimetype || "unknown"}). Allowed: audio, .zip, .rar, .7z, .pdf, .doc, .docx, .jpg, .png.`,
       ),
       false,
     );
@@ -105,6 +121,10 @@ const upload = multer({
 /**
  * CHAT ROUTES
  */
+
+// Get chat history for a group (required endpoint)
+// @route GET /api/chat/history/:groupId
+router.get("/history/:groupId", getMessages);
 
 // Get all messages for a group
 // @route GET /api/chat/messages/:groupId
