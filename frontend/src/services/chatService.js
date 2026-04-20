@@ -66,6 +66,9 @@ export const uploadFile = async (uploadData) => {
     if (uploadData.text) {
       formData.append("text", uploadData.text);
     }
+    if (uploadData.replyTo) {
+      formData.append("replyTo", JSON.stringify(uploadData.replyTo));
+    }
     formData.append("file", uploadData.file);
 
     const response = await axios.post(

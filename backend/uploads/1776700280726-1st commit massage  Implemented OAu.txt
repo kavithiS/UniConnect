@@ -1,0 +1,3 @@
+1st commit massage : Implemented OAuth 2.0 Google login and email/password authentication system with default USER role assignment for new users, and configured automatic redirection to the dashboard after successful login.
+
+2nd commit massage : Improve the authentication system by enhancing login flow and implementing role-based access control with proper redirection for different user types. After successful login, the system checks the user role stored in MongoDB and redirects the user accordingly: USER accounts are directed to the normal dashboard, ADMIN accounts are directed to the admin panel, and TECHNICIAN accounts are directed to the ticket management section.

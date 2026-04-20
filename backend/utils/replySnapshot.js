@@ -27,19 +27,33 @@ const buildReplySnapshot = (message) => {
 };
 
 const sanitizeReplySnapshot = (replyTo) => {
-  if (!replyTo || typeof replyTo !== "object") return null;
+  if (!replyTo) return null;
+
+  let normalizedReply = replyTo;
+  if (typeof replyTo === "string") {
+    const trimmedReply = replyTo.trim();
+    if (!trimmedReply || trimmedReply === "null") return null;
+
+    try {
+      normalizedReply = JSON.parse(trimmedReply);
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof normalizedReply !== "object") return null;
 
   return {
-    messageId: replyTo.messageId || replyTo._id || null,
-    senderName: replyTo.senderName || "",
-    messageType: replyTo.messageType || "text",
+    messageId: normalizedReply.messageId || normalizedReply._id || null,
+    senderName: normalizedReply.senderName || "",
+    messageType: normalizedReply.messageType || "text",
     messageText:
-      typeof replyTo.messageText === "string"
-        ? replyTo.messageText.trim()
-        : typeof replyTo.text === "string"
-          ? replyTo.text.trim()
+      typeof normalizedReply.messageText === "string"
+        ? normalizedReply.messageText.trim()
+        : typeof normalizedReply.text === "string"
+          ? normalizedReply.text.trim()
           : "",
-    fileUrl: replyTo.fileUrl || null,
+    fileUrl: normalizedReply.fileUrl || null,
   };
 };
 

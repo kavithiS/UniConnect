@@ -143,7 +143,8 @@ exports.uploadFile = async (req, res) => {
         : "NO FILE",
     );
 
-    const { groupId, senderId, senderName, profilePicture, text } = req.body;
+    const { groupId, senderId, senderName, profilePicture, text, replyTo } =
+      req.body;
     const file = req.file;
 
     // Validate required fields

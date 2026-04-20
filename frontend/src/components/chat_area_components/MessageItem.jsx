@@ -342,6 +342,26 @@ const MessageItem = ({
         ? "📎 File"
         : null;
 
+  const openFileInNewTab = (fileUrl) => {
+    if (!fileUrl) return;
+
+    const resolvedUrl = `${FILE_BASE_URL}${fileUrl}`;
+    window.open(resolvedUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const downloadFile = (e, fileUrl, fileName) => {
+    e.stopPropagation();
+    if (!fileUrl) return;
+
+    const resolvedUrl = `${FILE_BASE_URL}${fileUrl}`;
+    const link = document.createElement("a");
+    link.href = resolvedUrl;
+    link.download = fileName || "download";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div
       className={`w-full flex gap-2 mb-2 group ${
@@ -487,28 +507,9 @@ const MessageItem = ({
           {message.fileUrl && !message.isDeleted && (
             <div className="mt-2">
               {(() => {
-                const isImageFile = message.fileType?.startsWith("image/");
                 const isAudioFile =
                   message.fileType?.toLowerCase().startsWith("audio/") ||
                   /\.(mp3|wav|ogg|m4a|webm|aac)$/i.test(message.fileName || "");
-
-                if (isImageFile) {
-                  return (
-                    <a
-                      href={`${FILE_BASE_URL}${message.fileUrl}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      title="Open full image"
-                    >
-                      <img
-                        src={`${FILE_BASE_URL}${message.fileUrl}`}
-                        alt={message.fileName}
-                        className="max-w-full rounded-lg max-h-48 cursor-pointer"
-                      />
-                    </a>
-                  );
-                }
 
                 if (isAudioFile) {
                   return (
@@ -550,55 +551,65 @@ const MessageItem = ({
                 // Modern file display with icon and extension
                 const fileInfo = getFileInfo(message.fileName);
                 const FileIcon = fileInfo.icon;
+                const fileLabel =
+                  message.fileName?.split(".").pop()?.toUpperCase() || "FILE";
 
                 return (
-                  <a
-                    href={`${FILE_BASE_URL}${message.fileUrl}`}
-                    download={message.fileName}
-                    onClick={(e) => e.stopPropagation()}
-                    className={`flex items-center gap-3 p-3 rounded-xl max-w-xs transition-all hover:opacity-80 ${
-                      isOwnMessage
-                        ? "bg-blue-400/15 dark:bg-blue-900/20"
-                        : "bg-white/60 dark:bg-gray-800/60"
-                    }`}
-                    title="Click to View"
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openFileInNewTab(message.fileUrl)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        openFileInNewTab(message.fileUrl);
+                      }
+                    }}
+                    className="flex justify-between items-center bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2 gap-3 cursor-pointer hover:shadow-sm transition-all duration-200"
+                    title="Open file in new tab"
                   >
-                    {/* File Icon */}
-                    <div
-                      className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${fileInfo.bgColor}`}
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {/* File Icon */}
+                      <div
+                        className={`flex-shrink-0 w-10 h-10 rounded-md flex items-center justify-center ${fileInfo.bgColor}`}
+                      >
+                        <FileIcon className={`text-xl ${fileInfo.color}`} />
+                      </div>
+
+                      {/* File Details */}
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className={`truncate text-sm font-medium ${
+                            isOwnMessage
+                              ? "text-white"
+                              : "text-gray-900 dark:text-gray-100"
+                          }`}
+                        >
+                          {message.fileName}
+                        </div>
+                        <div
+                          className={`text-xs mt-0.5 ${
+                            isOwnMessage
+                              ? "text-blue-100"
+                              : "text-gray-500 dark:text-gray-400"
+                          }`}
+                        >
+                          {fileLabel} File
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={(e) =>
+                        downloadFile(e, message.fileUrl, message.fileName)
+                      }
+                      className="flex-shrink-0 text-gray-500 dark:text-gray-400 hover:text-blue-500 cursor-pointer transition-colors duration-200"
+                      title="Download file"
                     >
-                      <FileIcon className={`text-2xl ${fileInfo.color}`} />
-                    </div>
-
-                    {/* File Details */}
-                    <div className="flex-1 min-w-0">
-                      <div
-                        className={`font-medium text-sm truncate ${
-                          isOwnMessage
-                            ? "text-white"
-                            : "text-gray-900 dark:text-gray-100"
-                        }`}
-                      >
-                        {message.fileName}
-                      </div>
-                      <div
-                        className={`text-xs mt-0.5 ${
-                          isOwnMessage
-                            ? "text-blue-100"
-                            : "text-gray-500 dark:text-gray-400"
-                        }`}
-                      >
-                        {message.fileName?.split(".").pop()?.toUpperCase()} File
-                      </div>
-                    </div>
-
-                    {/* Download Icon - show only for received messages */}
-                    {!isOwnMessage && (
-                      <div className="flex-shrink-0">
-                        <FaDownload className="text-sm text-gray-400 dark:text-gray-500" />
-                      </div>
-                    )}
-                  </a>
+                      <FaDownload className="text-sm" />
+                    </button>
+                  </div>
                 );
               })()}
             </div>
