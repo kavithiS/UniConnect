@@ -62,6 +62,11 @@ const userSchema = new mongoose.Schema(
       default: [],
       trim: true
     },
+    faculty: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     role: {
       type: String,
       enum: ['Developer', 'Designer', 'Manager', 'Leader', 'Student'],

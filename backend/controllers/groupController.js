@@ -129,6 +129,34 @@ exports.getGroupById = async (req, res) => {
 };
 
 /**
+ * Get groups for current user (where user is a member)
+ * GET /groups/my/members
+ */
+exports.getMyMemberGroups = async (req, res) => {
+  try {
+    const groups = await Group.find({ 
+      members: req.userId 
+    }).populate({
+      path: 'members',
+      select: 'fullName name email skills faculty',
+      options: { strictPopulate: false }
+    });
+
+    res.status(200).json({
+      success: true,
+      count: groups.length,
+      data: groups
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching member groups',
+      error: error.message
+    });
+  }
+};
+
+/**
  * Get group by code
  * GET /groups/code/:code
  */
