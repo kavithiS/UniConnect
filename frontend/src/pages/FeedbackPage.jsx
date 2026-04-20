@@ -36,7 +36,7 @@ function FeedbackPage({ user }) {
       });
     });
     
-    return Array.from(teammates.values()).slice(0, 3);
+    return Array.from(teammates.values());
   }, [memberGroups, user]);
 
   const loadData = async () => {
