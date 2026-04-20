@@ -12,6 +12,7 @@ const messageSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Student",
       required: [true, "Sender ID is required"],
+      alias: "senderId",
     },
     senderName: {
       type: String,
@@ -25,6 +26,7 @@ const messageSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: [5000, "Message cannot exceed 5000 characters"],
+      alias: "message",
     },
     fileUrl: {
       type: String, // URL or path to uploaded file
@@ -115,6 +117,8 @@ const messageSchema = new mongoose.Schema(
   },
   {
     timestamps: true, // Adds createdAt and updatedAt
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   },
 );
 

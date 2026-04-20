@@ -22,7 +22,7 @@ export const FILE_BASE_URL = getBackendBaseUrl();
 export const getMessages = async (groupId) => {
   try {
     const response = await axios.get(
-      `${getChatApiBaseUrl()}/messages/${groupId}`,
+      `${getChatApiBaseUrl()}/history/${groupId}`,
     );
     return response.data;
   } catch (error) {

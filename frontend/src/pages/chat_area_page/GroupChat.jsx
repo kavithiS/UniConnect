@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
 import { io } from "socket.io-client";
 import {
@@ -21,8 +21,8 @@ import {
   leaveGroup,
 } from "../../services/chatService";
 import { getBackendBaseUrl } from "../../utils/backendUrl";
-import { getMockGroupById, isMockGroupId } from "../../data/mockGroups";
 import studentService from "../../services/studentService";
+import { fetchCurrentUser, getAuthToken } from "../../services/authService";
 import {
   FaPaperPlane,
   FaPaperclip,
@@ -90,7 +90,6 @@ const mergeMessages = (baseMessages, incomingMessages) => {
 
 const GroupChat = () => {
   const { isDarkMode } = useTheme();
-  const navigate = useNavigate();
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const previewGroupIdFromQuery = searchParams.get("groupId");
@@ -107,11 +106,12 @@ const GroupChat = () => {
       globalThis.location.origin,
     );
   };
-  // Get current user from localStorage (set by StudentProfile)
-  const storedFirstName = localStorage.getItem("userFirstName") || "John";
-  const storedLastName = localStorage.getItem("userLastName") || "Smith";
-  // do NOT default to an invalid id like 'S001' — prefer null so code validates correctly
-  const storedUserId = localStorage.getItem("userId") || null;
+  // Current authenticated user id (User collection)
+  const initialAuthUserId =
+    localStorage.getItem("userId") ||
+    localStorage.getItem("currentUserId") ||
+    null;
+  const [currentUserId, setCurrentUserId] = useState(initialAuthUserId);
   const storedProfilePicture = localStorage.getItem("userProfilePicture");
 
   // Dynamically load group ID from database instead of hardcoding
@@ -290,47 +290,71 @@ const GroupChat = () => {
   }, []);
 
   useEffect(() => {
-    const fetchCurrentUser = async () => {
+    const resolveChatIdentity = async () => {
+      const token = getAuthToken();
+
       try {
-        // First try to fetch all students and find the current user
+        let resolvedAuthUser = null;
+
+        if (token) {
+          resolvedAuthUser = await fetchCurrentUser(token);
+          if (resolvedAuthUser?._id) {
+            const authId = String(resolvedAuthUser._id);
+            localStorage.setItem("userId", authId);
+            localStorage.setItem("currentUserId", authId);
+            setCurrentUserId(authId);
+          }
+        }
+
+        const authId = resolvedAuthUser?._id
+          ? String(resolvedAuthUser._id)
+          : initialAuthUserId;
+
+        if (!authId) {
+          setSenderId(null);
+          setSenderName(null);
+          return;
+        }
+
         const response = await studentService.getAllStudents();
         const students = response.data || [];
 
-        if (students.length > 0) {
-          // For now, use the first student (or find by userId from localStorage)
-          // Try to match by _id or by a legacy userId field, otherwise fallback to first student
-          const currentUser =
-            students.find(
-              (s) =>
-                (s._id && s._id.toString() === storedUserId) ||
-                (s.userId && s.userId === storedUserId),
-            ) || students[0];
+        const matchingStudent = students.find(
+          (student) =>
+            String(student?.userId || "") === authId ||
+            String(student?._id || "") === authId,
+        );
 
-          setSenderId(currentUser._id);
-          setSenderName(`${currentUser.firstName} ${currentUser.lastName}`);
+        if (matchingStudent?._id) {
+          setSenderId(String(matchingStudent._id));
+          setSenderName(
+            `${matchingStudent.firstName || ""} ${matchingStudent.lastName || ""}`.trim() ||
+              resolvedAuthUser?.fullName ||
+              resolvedAuthUser?.name ||
+              resolvedAuthUser?.email ||
+              "User",
+          );
 
-          if (currentUser.profilePicture) {
-            setSenderProfilePicture(currentUser.profilePicture);
+          if (matchingStudent.profilePicture) {
+            setSenderProfilePicture(matchingStudent.profilePicture);
           }
-
-          console.log(
-            "✓ Loaded current user for chat:",
-            currentUser.firstName,
-            currentUser.lastName,
+        } else {
+          // Use authenticated user id as sender fallback; backend resolves/creates linked student when needed.
+          setSenderId(authId);
+          setSenderName(
+            resolvedAuthUser?.fullName ||
+              resolvedAuthUser?.name ||
+              resolvedAuthUser?.email ||
+              "User",
           );
         }
       } catch (err) {
-        console.warn(
-          "Could not fetch current user, using localStorage data:",
-          err.message,
-        );
-        // Fallback to using just the localStorage values
-        setSenderName(`${storedFirstName} ${storedLastName}`);
+        console.warn("Could not resolve chat identity:", err.message);
       }
     };
 
-    fetchCurrentUser();
-  }, []);
+    resolveChatIdentity();
+  }, [initialAuthUserId]);
 
   useEffect(() => {
     const initializeChat = async () => {
@@ -340,7 +364,7 @@ const GroupChat = () => {
         // Step 1: Resolve selected group from active selection or current user's groups.
         const preferredGroupId = localStorage.getItem("activeGroupId");
         let selectedGroupId = groupId;
-        const currentStudentId = senderId || storedUserId;
+        const currentStudentId = currentUserId;
         if (!selectedGroupId) {
           if (currentStudentId) {
             try {
@@ -398,21 +422,6 @@ const GroupChat = () => {
 
         // Step 3: Fetch detailed group info with members
         try {
-          if (isMockGroupId(selectedGroupId)) {
-            const mockGroup = getMockGroupById(selectedGroupId);
-            if (mockGroup) {
-              setGroupDetails({
-                ...mockGroup,
-                groupName: mockGroup.groupName || mockGroup.title,
-              });
-              setGroupMembers(mockGroup.members || []);
-              setPinnedMessages([]);
-              setMessages([]);
-              setIsLoading(false);
-              return;
-            }
-          }
-
           const groupResponse = await getGroupDetails(selectedGroupId);
           // Backend: { success: true, data: { groupName, members: [...], ... } }
           // Service returns response.data = { success: true, data: {...} }
@@ -472,7 +481,6 @@ const GroupChat = () => {
             localStorage.getItem(`removed_messages_${selectedGroupId}`) || "[]",
           );
 
-          // If we got real messages from server, use them instead of dummy
           if (Array.isArray(fetchedMessages) && fetchedMessages.length > 0) {
             // Filter out completely removed messages and mark hidden ones
             const messagesWithHidden = fetchedMessages
@@ -483,7 +491,7 @@ const GroupChat = () => {
                   : msg,
               );
             // Replace state during hydration so only this group's messages are shown.
-            setMessages(messagesWithHidden);
+            setMessages(mergeMessages([], messagesWithHidden));
           } else {
             setMessages([]);
           }
@@ -514,46 +522,22 @@ const GroupChat = () => {
       socket.off("user_typing");
       socket.off("user_stop_typing");
     };
-  }, [groupId, chatSelectionNonce, senderId, storedUserId]);
+  }, [groupId, chatSelectionNonce, senderId, currentUserId]);
 
   /**
    * Socket.IO: Listen for incoming messages
    */
   useEffect(() => {
-    socket.on("receive_message", (message) => {
+    const handleIncomingMessage = (message) => {
       if (!message || String(message.groupId) !== String(groupId)) {
         return;
       }
 
-      setMessages((prevMessages) => {
-        // Check 1: Exact ID match (for duplicate server messages)
-        const messageExists = prevMessages.some(
-          (msg) => msg._id === message._id,
-        );
-        if (messageExists) {
-          return prevMessages;
-        }
+      setMessages((prevMessages) => mergeMessages(prevMessages, [message]));
+    };
 
-        // Check 2: Match by clientMessageId (for replacing optimistic messages)
-        // This is the PRIMARY deduplication method
-        if (message.clientMessageId) {
-          const optimisticIndex = prevMessages.findIndex(
-            (msg) => msg.clientMessageId === message.clientMessageId,
-          );
-
-          if (optimisticIndex !== -1) {
-            // Found the optimistic message - replace it with the real one
-            const updatedMessages = [...prevMessages];
-            updatedMessages[optimisticIndex] = message; // Replace temp with real message
-
-            return updatedMessages;
-          }
-        }
-
-        // Otherwise, add as new message
-        return [...prevMessages, message];
-      });
-    });
+    socket.on("receive_message", handleIncomingMessage);
+    socket.on("receiveMessage", handleIncomingMessage);
 
     socket.on("user_typing", (data) => {
       if (data.senderName !== senderName) {
@@ -581,6 +565,7 @@ const GroupChat = () => {
 
     return () => {
       socket.off("receive_message");
+      socket.off("receiveMessage");
       socket.off("user_typing");
       socket.off("user_stop_typing");
       socket.off("reaction_added");
@@ -1379,6 +1364,11 @@ const GroupChat = () => {
 
     if (!messageText.trim() && !selectedFile && !recordedAudioFile) return;
 
+    if (!groupId || !senderId || !senderName) {
+      console.warn("Chat identity or group is not ready yet.");
+      return;
+    }
+
     if (recordedAudioFile) {
       handleSendRecordedVoiceMessage();
       return;
@@ -1775,6 +1765,7 @@ const GroupChat = () => {
     ) {
       try {
         const memberId =
+          currentUserId ||
           senderId ||
           localStorage.getItem("userId") ||
           localStorage.getItem("currentUserId") ||
@@ -1788,13 +1779,6 @@ const GroupChat = () => {
         }
 
         const currentGroupId = groupId || localStorage.getItem("activeGroupId");
-
-        if (currentGroupId && isMockGroupId(currentGroupId)) {
-          resetGroupViewAfterLeave(currentGroupId);
-          console.log("Left mock group successfully");
-          alert("You have left the group.");
-          return;
-        }
 
         await leaveGroup(currentGroupId || groupId, memberId);
         console.log("Left group successfully");
@@ -1858,12 +1842,12 @@ const GroupChat = () => {
               <li>
                 Run:{" "}
                 <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded text-blue-900 dark:text-blue-200">
-                  node backend/seedDummyData.js
+                  npm run dev
                 </code>
               </li>
-              <li>Copy the Group ID from terminal output</li>
-              <li>Update DUMMY_GROUP_ID in GroupChat.jsx</li>
-              <li>Refresh this page</li>
+              <li>Sign in and join an existing group</li>
+              <li>Open Group Details and click Open Group Chat</li>
+              <li>Refresh this page after backend is running</li>
             </ol>
           </div>
         </div>

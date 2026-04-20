@@ -106,6 +106,10 @@ const upload = multer({
  * CHAT ROUTES
  */
 
+// Get chat history for a group (required endpoint)
+// @route GET /api/chat/history/:groupId
+router.get("/history/:groupId", getMessages);
+
 // Get all messages for a group
 // @route GET /api/chat/messages/:groupId
 router.get("/messages/:groupId", getMessages);
