@@ -45,7 +45,7 @@ const storage = multer.diskStorage({
 
 /**
  * File Filter - Accept only specific file types
- * Allowed: Images, PDF, DOC/DOCX, ZIP/RAR/7Z
+ * Allowed: Images, Audio, PDF, DOC/DOCX, ZIP/RAR/7Z
  */
 const fileFilter = (req, file, cb) => {
   const normalizedMimeType = (file.mimetype || "")
@@ -74,20 +74,32 @@ const fileFilter = (req, file, cb) => {
     ".jpg",
     ".jpeg",
     ".png",
+    ".webm",
+    ".ogg",
+    ".mp3",
+    ".wav",
+    ".m4a",
+    ".aac",
   ]);
 
   const isAllowedImage = normalizedMimeType.startsWith("image/");
+  const isAllowedAudio = normalizedMimeType.startsWith("audio/");
   const isAllowedByMime = allowedMimeTypes.has(normalizedMimeType);
   const isAllowedByExtension = [...allowedExtensions].some((ext) =>
     normalizedFileName.endsWith(ext),
   );
 
-  if (isAllowedImage || isAllowedByMime || isAllowedByExtension) {
+  if (
+    isAllowedImage ||
+    isAllowedAudio ||
+    isAllowedByMime ||
+    isAllowedByExtension
+  ) {
     cb(null, true); // Accept file
   } else {
     cb(
       new Error(
-        `Invalid file type (${file.mimetype || "unknown"}). Allowed: .zip, .rar, .7z, .pdf, .doc, .docx, .jpg, .png.`,
+        `Invalid file type (${file.mimetype || "unknown"}). Allowed: audio, .zip, .rar, .7z, .pdf, .doc, .docx, .jpg, .png.`,
       ),
       false,
     );

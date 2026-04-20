@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   FaStar,
   FaThumbtack,
@@ -16,6 +16,166 @@ import {
 import { getBackendBaseUrl } from "../../utils/backendUrl";
 
 const FILE_BASE_URL = getBackendBaseUrl();
+
+const AUDIO_SPEED_STEPS = [1, 1.5, 2];
+
+const formatAudioTime = (seconds) => {
+  if (!Number.isFinite(seconds) || seconds < 0) return "00:00";
+  const mins = Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, "0");
+  const secs = Math.floor(seconds % 60)
+    .toString()
+    .padStart(2, "0");
+  return `${mins}:${secs}`;
+};
+
+const VoiceMessagePlayer = ({ src, isOwnMessage }) => {
+  const audioRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [speed, setSpeed] = useState(1);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    audioRef.current.playbackRate = speed;
+  }, [speed]);
+
+  const handleTogglePlayPause = async () => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      return;
+    }
+
+    try {
+      await audioRef.current.play();
+    } catch (error) {
+      setIsPlaying(false);
+      console.error("Audio play failed:", error);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (!audioRef.current) return;
+    const nextCurrent = audioRef.current.currentTime || 0;
+    const nextDuration = audioRef.current.duration || 0;
+    setCurrentTime(nextCurrent);
+    if (nextDuration > 0) {
+      setProgress((nextCurrent / nextDuration) * 100);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (!audioRef.current) return;
+    const total = audioRef.current.duration || 0;
+    setDuration(total);
+  };
+
+  const handleSeek = (event) => {
+    if (!audioRef.current || duration <= 0) return;
+    const nextProgress = Number(event.target.value);
+    const seekTime = (nextProgress / 100) * duration;
+    audioRef.current.currentTime = seekTime;
+    setProgress(nextProgress);
+    setCurrentTime(seekTime);
+  };
+
+  const handleSpeedChange = () => {
+    const currentIndex = AUDIO_SPEED_STEPS.indexOf(speed);
+    const nextIndex = (currentIndex + 1) % AUDIO_SPEED_STEPS.length;
+    setSpeed(AUDIO_SPEED_STEPS[nextIndex]);
+  };
+
+  return (
+    <div
+      className={`w-[350px] flex items-start gap-3 px-3 py-2 rounded-2xl ${
+        isOwnMessage
+          ? "bg-blue-500 text-white"
+          : "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={handleTogglePlayPause}
+        className={`w-8 h-8 self-start flex items-center justify-center rounded-full hover:scale-105 transition ${
+          isOwnMessage
+            ? "bg-white text-blue-500"
+            : "bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
+        }`}
+        aria-label={isPlaying ? "Pause voice message" : "Play voice message"}
+      >
+        <span className="text-[13px] leading-none">
+          {isPlaying ? "⏸" : "▶"}
+        </span>
+      </button>
+
+      <div className="flex-1 min-w-0">
+        <div className="h-8 flex items-center">
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="0.1"
+            value={progress}
+            onChange={handleSeek}
+            className={`w-full h-1.5 rounded-full cursor-pointer appearance-none ${
+              isOwnMessage
+                ? "[&::-webkit-slider-thumb]:bg-white [&::-moz-range-thumb]:bg-white"
+                : "[&::-webkit-slider-thumb]:bg-blue-500 [&::-moz-range-thumb]:bg-blue-500"
+            } [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-0 [&::-webkit-slider-thumb]:shadow-sm [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0`}
+            style={{
+              background: isOwnMessage
+                ? `linear-gradient(to right, rgba(255,255,255,0.95) ${progress}%, rgba(191,219,254,0.45) ${progress}%)`
+                : `linear-gradient(to right, rgb(59 130 246) ${progress}%, rgb(209 213 219) ${progress}%)`,
+            }}
+            aria-label="Voice message progress"
+          />
+        </div>
+        <div
+          className={`mt-1 text-[11px] flex items-center justify-between ${
+            isOwnMessage ? "text-blue-100" : "text-gray-600 dark:text-gray-300"
+          }`}
+        >
+          <span>
+            {formatAudioTime(currentTime)} / {formatAudioTime(duration)}
+          </span>
+          <button
+            type="button"
+            onClick={handleSpeedChange}
+            className={`text-xs px-2 py-0.5 rounded-md font-medium ${
+              isOwnMessage
+                ? "bg-white/20 text-white"
+                : "bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-100"
+            }`}
+            aria-label="Change playback speed"
+          >
+            {speed}x
+          </button>
+        </div>
+      </div>
+
+      <audio
+        ref={audioRef}
+        preload="metadata"
+        src={src}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+        onEnded={() => {
+          setIsPlaying(false);
+          setProgress(100);
+        }}
+        className="hidden"
+      >
+        <track kind="captions" />
+      </audio>
+    </div>
+  );
+};
 
 const MessageItem = ({
   message,
@@ -517,36 +677,14 @@ const MessageItem = ({
                 if (isAudioFile) {
                   return (
                     <div
-                      className="rounded-xl p-2"
+                      className="rounded-xl"
                       onClick={(e) => e.stopPropagation()}
                       onDoubleClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex items-center gap-2">
-                        <audio
-                          controls
-                          preload="metadata"
-                          src={`${FILE_BASE_URL}${message.fileUrl}`}
-                          className={`w-full ${isMobilePreview ? "min-w-0 max-w-full" : "min-w-[320px] max-w-[480px]"}`}
-                        >
-                          <track kind="captions" />
-                        </audio>
-                        <div className="h-6 flex items-end gap-1 flex-shrink-0">
-                          {[8, 14, 10, 16, 9, 13].map((height, index) => (
-                            <span
-                              key={`wave-${height}`}
-                              className="w-1 rounded-full opacity-60 animate-pulse"
-                              style={{
-                                height: `${height}px`,
-                                backgroundColor: isOwnMessage
-                                  ? "rgb(59, 130, 246)"
-                                  : "rgb(107, 114, 128)",
-                                animationDelay: `${index * 0.12}s`,
-                                animationDuration: "0.9s",
-                              }}
-                            />
-                          ))}
-                        </div>
-                      </div>
+                      <VoiceMessagePlayer
+                        src={`${FILE_BASE_URL}${message.fileUrl}`}
+                        isOwnMessage={isOwnMessage}
+                      />
                     </div>
                   );
                 }
