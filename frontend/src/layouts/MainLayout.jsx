@@ -87,7 +87,7 @@ function MainLayout({ user, onLogout }) {
         </div>
 
         {/* Navigation */}
-        <div>
+        <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
           <div
             className={`px-3 text-xs uppercase tracking-widest font-medium mb-3 ${isDarkMode ? "text-slate-500" : "text-slate-600"}`}
           >
@@ -122,6 +122,7 @@ function MainLayout({ user, onLogout }) {
         <div
           className={`mt-auto pt-6 border-t space-y-2 ${isDarkMode ? "border-slate-800" : "border-slate-200"}`}
         >
+        
           {user && (
             <div
               className={`px-3 py-2 text-xs rounded-lg ${isDarkMode ? "bg-slate-900 text-slate-400" : "bg-slate-100 text-slate-600"}`}
@@ -166,8 +167,10 @@ function MainLayout({ user, onLogout }) {
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 py-8 px-12 flex flex-col h-screen overflow-y-auto transition-colors duration-300">
-        <Outlet />
+      <main className="flex-1 overflow-y-auto">
+        <div className="py-8 px-12 transition-colors duration-300">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

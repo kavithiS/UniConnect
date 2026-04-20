@@ -11,9 +11,10 @@ exports.setupProfile = async (req, res) => {
       skills,
       achievements,
       about,
+      faculty,
     } = req.body;
 
-    if (!fullName || !registrationNumber || !year || !semester || !enrolledYear) {
+    if (!fullName || !registrationNumber || !year || !semester || !enrolledYear || !faculty) {
       return res.status(400).json({
         success: false,
         message: 'Please fill all required profile fields',
@@ -40,6 +41,7 @@ exports.setupProfile = async (req, res) => {
         skills: normalizedSkills,
         achievements: normalizedAchievements,
         about: String(about || '').trim(),
+        faculty: String(faculty || '').trim(),
         profileCompleted: true,
       },
       { new: true, runValidators: true }

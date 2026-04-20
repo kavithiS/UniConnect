@@ -20,25 +20,172 @@ const PersonalizedHomePage = ({ user }) => {
 
   const userName = user?.fullName ? user.fullName.split(" ")[0] : "Developer";
 
-  const userSkills = [
-    { name: "React", color: "from-blue-500 to-cyan-500" },
-    { name: "Frontend", color: "from-purple-500 to-pink-500" },
-    { name: "JavaScript", color: "from-yellow-500 to-orange-500" },
+  // Dynamically load user skills from the user object
+  const skillColors = [
+    "from-blue-500 to-cyan-500",
+    "from-purple-500 to-pink-500",
+    "from-emerald-500 to-teal-500",
+    "from-orange-500 to-rose-500",
+    "from-indigo-500 to-blue-500",
+    "from-amber-500 to-orange-500"
   ];
 
-  const suggestedSkills = [
-    { name: "Backend", icon: Code, color: "bg-blue-500/20 text-blue-300 border-blue-400/30" },
-    { name: "Testing", icon: TestTubes, color: "bg-green-500/20 text-green-300 border-green-400/30" },
-    { name: "UI/UX", icon: Palette, color: "bg-pink-500/20 text-pink-300 border-pink-400/30" },
-    { name: "DevOps", icon: Zap, color: "bg-orange-500/20 text-orange-300 border-orange-400/30" },
-  ];
+  const userSkills = user?.skills && user.skills.length > 0
+    ? user.skills.map((skill, idx) => ({
+        name: skill,
+        color: skillColors[idx % skillColors.length]
+      }))
+    : [
+        { name: "Frontend", color: "from-blue-500 to-cyan-500" },
+        { name: "Backend", color: "from-purple-500 to-pink-500" },
+      ];
 
-  const resources = [
-    { title: "React Fundamentals", icon: Code, description: "Master React hooks and components" },
-    { title: "API Testing Guide", icon: TestTubes, description: "Learn REST and GraphQL testing" },
-    { title: "UI Design Patterns", icon: Palette, description: "Create beautiful user interfaces" },
-    { title: "Advanced JavaScript", icon: Sparkles, description: "Deep dive into async and await" },
-  ];
+  // Get suggested skills that the user doesn't have
+  const allSkills = ['Frontend', 'Backend', 'Database', 'Testing', 'UI/UX', 'DevOps', 'Mobile', 'Data Analysis'];
+  const userSkillNames = user?.skills?.map(s => s.toLowerCase()) || [];
+  const suggestedSkillsBase = allSkills.filter(skill => !userSkillNames.includes(skill.toLowerCase()));
+
+  const skillIcons = {
+    Backend: Code,
+    Testing: TestTubes,
+    'UI/UX': Palette,
+    DevOps: Zap,
+    Database: Code,
+    Mobile: Code,
+    'Data Analysis': TrendingUp,
+  };
+
+  const suggestedSkills = suggestedSkillsBase.map((skill) => ({
+    name: skill,
+    icon: skillIcons[skill] || Code,
+    color: "bg-blue-500/20 text-blue-300 border-blue-400/30"
+  }));
+
+  // Skill-based course recommendations
+  const courseLibrary = {
+    Frontend: [
+      { title: "React Fundamentals", icon: Code, description: "Master React hooks and components" },
+      { title: "Advanced CSS & Animations", icon: Palette, description: "Create stunning visual experiences" },
+      { title: "Frontend Performance", icon: TrendingUp, description: "Optimize web application speed" },
+    ],
+    Backend: [
+      { title: "Node.js & Express", icon: Code, description: "Build scalable server applications" },
+      { title: "RESTful API Design", icon: Code, description: "Design robust APIs" },
+      { title: "Database Optimization", icon: Code, description: "Master query optimization" },
+    ],
+    Database: [
+      { title: "SQL Advanced Queries", icon: Code, description: "Master complex database operations" },
+      { title: "NoSQL Design Patterns", icon: Code, description: "Design scalable NoSQL systems" },
+      { title: "Database Performance", icon: TrendingUp, description: "Optimize database performance" },
+    ],
+    Testing: [
+      { title: "Unit Testing Best Practices", icon: TestTubes, description: "Write effective test cases" },
+      { title: "E2E Testing with Cypress", icon: TestTubes, description: "Master end-to-end testing" },
+      { title: "Test Coverage Strategy", icon: TestTubes, description: "Achieve optimal test coverage" },
+    ],
+    'UI/UX': [
+      { title: "UI Design Patterns", icon: Palette, description: "Create beautiful user interfaces" },
+      { title: "User Research Methods", icon: Users, description: "Understand user needs deeply" },
+      { title: "Accessibility in Design", icon: Palette, description: "Build inclusive experiences" },
+    ],
+    DevOps: [
+      { title: "Docker & Containers", icon: Zap, description: "Containerize applications" },
+      { title: "CI/CD Pipelines", icon: Zap, description: "Automate deployment workflows" },
+      { title: "Kubernetes Basics", icon: Zap, description: "Orchestrate containerized apps" },
+    ],
+    Mobile: [
+      { title: "React Native Essentials", icon: Code, description: "Build cross-platform mobile apps" },
+      { title: "Mobile UX Design", icon: Palette, description: "Design for mobile users" },
+      { title: "App Performance", icon: TrendingUp, description: "Optimize mobile app speed" },
+    ],
+    'Data Analysis': [
+      { title: "SQL for Analytics", icon: Code, description: "Query data for insights" },
+      { title: "Data Visualization", icon: TrendingUp, description: "Tell stories with data" },
+      { title: "Statistical Analysis", icon: TrendingUp, description: "Master statistical methods" },
+    ],
+  };
+
+  // Generate courses based on user skills
+  const getRecommendedCourses = () => {
+    const courses = [];
+    user?.skills?.forEach((skill) => {
+      if (courseLibrary[skill]) {
+        courses.push(...courseLibrary[skill]);
+      }
+    });
+    // Return first 3 unique courses
+    return courses.slice(0, 3).length > 0 ? courses.slice(0, 3) : [
+      { title: "React Fundamentals", icon: Code, description: "Master React hooks and components" },
+      { title: "API Testing Guide", icon: TestTubes, description: "Learn REST and GraphQL testing" },
+      { title: "UI Design Patterns", icon: Palette, description: "Create beautiful user interfaces" },
+    ];
+  };
+
+  const resources = getRecommendedCourses();
+
+  // Generate skill improvement suggestions
+  const getSkillImprovementTip = () => {
+    if (!user?.skills || user.skills.length === 0) {
+      return "Get started by adding your core skills to unlock personalized recommendations!";
+    }
+
+    const technicalSkills = ['Frontend', 'Backend', 'Database', 'Mobile', 'DevOps'];
+    const softSkills = ['UI/UX', 'Testing', 'Data Analysis'];
+    
+    const hasTechnical = user.skills.some(s => technicalSkills.includes(s));
+    const hasSoft = user.skills.some(s => softSkills.includes(s));
+
+    if (hasTechnical && !hasSoft) {
+      return "Consider improving your UI/UX or Testing skills to become a more well-rounded developer!";
+    } else if (hasSoft && !hasTechnical) {
+      return "Consider learning a technical skill like Frontend or Backend to complement your current expertise!";
+    } else if (user.skills.length === 1) {
+      const nextSkill = suggestedSkillsBase[0];
+      return `Great start! Consider learning ${nextSkill} to expand your skill set and unlock more opportunities!`;
+    } else {
+      return "Excellent skill diversity! Focus on deepening expertise in your core areas.";
+    }
+  };
+
+  // Generate team suggestions based on complementary skills
+  const getTeammateRecommendation = () => {
+    if (!user?.skills || user.skills.length === 0) {
+      return "Add your skills to get suitable teammate recommendations!";
+    }
+
+    const technicalSkills = ['Frontend', 'Backend', 'Database', 'Mobile', 'DevOps'];
+    const designSkills = ['UI/UX'];
+    const testingSkills = ['Testing'];
+    const dataSkills = ['Data Analysis'];
+
+    const hasTechnical = user.skills.some(s => technicalSkills.includes(s));
+    const hasDesign = user.skills.some(s => designSkills.includes(s));
+    const hasTesting = user.skills.some(s => testingSkills.includes(s));
+    const hasData = user.skills.some(s => dataSkills.includes(s));
+
+    let suggestions = [];
+
+    if (hasTechnical && !hasDesign) {
+      suggestions.push("a UI/UX specialist");
+    }
+    if ((hasTechnical || hasDesign) && !hasTesting) {
+      suggestions.push("a QA/Testing expert");
+    }
+    if (hasTechnical && !hasData) {
+      suggestions.push("a Data Analyst");
+    }
+    if (!hasTechnical && hasDesign) {
+      suggestions.push("a Backend or Frontend developer");
+    }
+
+    if (suggestions.length === 0) {
+      return "You have a great skill mix! Look for teammates with project management or leadership skills.";
+    }
+
+    return `Look for a teammate with ${suggestions.join(", ")} skills to complement your expertise!`;
+  };
+
+  const proTip = getSkillImprovementTip();
 
   const mockFeedback = [
     {
@@ -63,8 +210,6 @@ const PersonalizedHomePage = ({ user }) => {
       date: "2 weeks ago",
     },
   ];
-
-  const proTip = "Complete your profile with all skills to unlock better teammate recommendations!";
 
   return (
     <div className="min-h-screen bg-slate-950 text-white relative overflow-hidden">
@@ -107,11 +252,41 @@ const PersonalizedHomePage = ({ user }) => {
                     <TrendingUp className="h-4 w-4" />
                   </button>
                 </div>
+                
+                <div className="mt-8 grid gap-4 grid-cols-1 md:grid-cols-2">
+                   <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-5">
+                      <div className="flex items-center gap-3">
+                        <Lightbulb className="h-5 w-5 text-blue-300" />
+                        <h3 className="text-sm font-bold uppercase tracking-widest text-white">Skill Improvement</h3>
+                      </div>
+                      <p className="mt-2 text-sm text-slate-300">{getSkillImprovementTip()}</p>
+                   </div>
+                   <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
+                      <div className="flex items-center gap-3">
+                        <Users className="h-5 w-5 text-emerald-300" />
+                        <h3 className="text-sm font-bold uppercase tracking-widest text-white">Suggested Partner</h3>
+                      </div>
+                      <p className="mt-2 text-sm text-slate-300">{getTeammateRecommendation()}</p>
+                   </div>
+                </div>
+
+                {user?.skills && user.skills.length > 0 && (
+                  <div className="mt-8">
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500 font-bold mb-3">Your Skill Stack</p>
+                    <div className="flex flex-wrap gap-2">
+                      {userSkills.map((skill, idx) => (
+                        <span key={idx} className={`rounded-full bg-gradient-to-r ${skill.color} px-4 py-1.5 text-xs font-bold text-white shadow-sm`}>
+                          {skill.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="grid w-full max-w-md grid-cols-2 gap-4">
                 {[
-                  { label: "Active Skills", value: "12", icon: Sparkles },
-                  { label: "Team Matches", value: "8", icon: Users },
+                  { label: "Active Skills", value: (user?.skills?.length || 0), icon: Sparkles },
+                  { label: "Faculty", value: user?.faculty || "N/A", icon: Users },
                   { label: "Feedback", value: mockFeedback.length, icon: Star },
                   { label: "Projects", value: "4", icon: TrendingUp },
                 ].map((stat, idx) => {
@@ -216,6 +391,15 @@ const PersonalizedHomePage = ({ user }) => {
                   </div>
                 ))}
               </div>
+
+              <div className="mt-6 rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/20 to-slate-950/40 p-5">
+                <div className="flex items-center gap-3">
+                  <Users className="h-5 w-5 text-emerald-300" />
+                  <h3 className="text-lg font-semibold text-white">Ideal Partner</h3>
+                </div>
+                <p className="mt-3 text-sm text-slate-300">{getTeammateRecommendation()}</p>
+              </div>
+
               <button
                 onClick={() => navigate("/dashboard/tasks")}
                 className="mt-6 w-full rounded-full bg-blue-500/20 py-3 text-sm font-semibold text-blue-200 transition hover:bg-blue-500/30"

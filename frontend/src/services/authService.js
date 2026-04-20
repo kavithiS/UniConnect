@@ -169,3 +169,14 @@ export const fetchUsers = async (token) => {
   }
   return data.data || [];
 };
+
+export const fetchMyMemberGroups = async (token) => {
+  const response = await fetch(`${getApiBaseUrl()}/groups/my/members`, {
+    headers: jsonHeaders(token),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to load member groups');
+  }
+  return data.data || [];
+};

@@ -5,10 +5,11 @@ import ReceivedRequestCard from '../components/ReceivedRequestCard';
 import SentRequestCard from '../components/SentRequestCard';
 import SendRequestModal from '../components/SendRequestModal';
 import { detectBackendBaseUrl, getBackendBaseUrl } from '../utils/backendUrl';
+import { getAuthToken } from '../services/authService';
 
 const getApiBase = () => getBackendBaseUrl();
 
-export default function RequestsPage() {
+export default function RequestsPage({ user: currentUser }) {
   const { isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState('received');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -24,30 +25,31 @@ export default function RequestsPage() {
   const [editingRequestId, setEditingRequestId] = useState(null);
   const [editMessage, setEditMessage] = useState('');
 
+  const token = getAuthToken();
+
   // Initialize and fetch
   useEffect(() => {
-    const user = localStorage.getItem('userId');
-    if (!user) {
+    const userId = currentUser?._id || localStorage.getItem('userId');
+    if (!userId) {
       setError('User ID not found. Please log in.');
       return;
     }
 
     // Basic validation: ensure userId looks like a Mongo ObjectId (24 hex chars)
-    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(user);
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
     if (!isValidObjectId) {
-      setError('Invalid userId in localStorage. Please log in with a proper account.');
+      setError('Invalid userId. Please log in with a proper account.');
       return;
     }
 
-    fetchAllData();
-  }, []);
+    fetchAllData(userId);
+  }, [currentUser]);
 
-  const fetchAllData = async () => {
+  const fetchAllData = async (userId) => {
     try {
       setLoading(true);
       setError(null);
 
-      const userId = localStorage.getItem('userId');
       if (!userId) {
         throw new Error('User ID not found. Please reload and try again.');
       }
@@ -97,7 +99,7 @@ export default function RequestsPage() {
       const data = await response.json();
       
       if (data.success) {
-        await fetchAllData();
+        await fetchAllData(currentUser?._id || localStorage.getItem('userId'));
       } else {
         setError(data.message);
       }
@@ -116,7 +118,7 @@ export default function RequestsPage() {
       const data = await response.json();
       
       if (data.success) {
-        await fetchAllData();
+        await fetchAllData(currentUser?._id || localStorage.getItem('userId'));
       } else {
         setError(data.message);
       }
@@ -137,7 +139,7 @@ export default function RequestsPage() {
       const data = await response.json();
       
       if (data.success) {
-        await fetchAllData();
+        await fetchAllData(currentUser?._id || localStorage.getItem('userId'));
         setError(null);
       } else {
         setError(data.message);
@@ -145,14 +147,6 @@ export default function RequestsPage() {
     } catch (err) {
       setError('Failed to delete request');
       console.error('Error deleting request:', err);
-    }
-  };
-
-  const handleEditMessage = (requestId) => {
-    const request = sentRequests.find(r => r._id === requestId);
-    if (request) {
-      setEditingRequestId(requestId);
-      setEditMessage(request.message || '');
     }
   };
 
@@ -166,37 +160,47 @@ export default function RequestsPage() {
       const response = await fetch(
         `${getApiBase()}/api/requests/${requestId}`,
         {
-          method: 'PUT',
+          method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: editMessage })
         }
       );
       const data = await response.json();
-      
+
       if (data.success) {
-        await fetchAllData();
         setEditingRequestId(null);
         setEditMessage('');
+        await fetchAllData(currentUser?._id || localStorage.getItem('userId'));
       } else {
         setError(data.message);
       }
     } catch (err) {
-      setError('Failed to update message');
-      console.error('Error updating message:', err);
+      setError('Failed to update request');
+    }
+  };
+
+  const handleEditMessage = (requestId) => {
+    const request = sentRequests.find(r => r._id === requestId);
+    if (request) {
+      setEditingRequestId(requestId);
+      setEditMessage(request.message || '');
     }
   };
 
   const handleSendRequest = async (groupId, message) => {
     try {
-      let userId = localStorage.getItem('userId');
+      const userId = currentUser?._id || localStorage.getItem('userId');
       if (!userId) {
         setError('User session is invalid. Please reload and try again.');
         return;
       }
 
-      let response = await fetch(`${getApiBase()}/api/requests`, {
+      const response = await fetch(`${getApiBase()}/api/requests`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           groupId,
           requestType: 'join',
@@ -205,15 +209,15 @@ export default function RequestsPage() {
         })
       });
 
-      let data = await response.json().catch(() => ({}));
+      const data = await response.json().catch(() => ({}));
 
       if (data.success) {
         setShowSendModal(false);
         setSelectedGroupForRequest(null);
-        await fetchAllData();
+        await fetchAllData(userId);
         setError(null);
       } else {
-        setError(data.message);
+        setError(data.message || 'Failed to send request');
       }
     } catch (err) {
       setError('Failed to send request');

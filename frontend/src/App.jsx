@@ -263,7 +263,7 @@ function AppContent() {
               <Route path="groups" element={<GroupsDashboard />} />
               <Route path="create-group" element={<CreateGroupPage />} />
               <Route path="group/:id" element={<GroupDetailsPage />} />
-              <Route path="requests" element={<RequestsPage />} />
+              <Route path="requests" element={<RequestsPage user={user} />} />
               <Route path="smart-hub" element={<SmartRequestHub />} />
               <Route path="recommendations" element={<RecommendationsPage />} />
               <Route path="feedback" element={<FeedbackPage user={user} />} />
