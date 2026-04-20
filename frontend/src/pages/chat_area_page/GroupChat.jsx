@@ -684,6 +684,24 @@ const GroupChat = () => {
         profilePicture: senderProfilePicture,
         text: messageText.trim(), // Optional caption
         file: selectedFile,
+        replyTo: replyingTo
+          ? {
+              messageId: replyingTo._id || null,
+              senderName: replyingTo.senderName || "",
+              messageType: replyingTo.fileUrl
+                ? String(replyingTo.fileType || "")
+                    .toLowerCase()
+                    .startsWith("image/")
+                  ? "image"
+                  : "file"
+                : "text",
+              messageText:
+                typeof replyingTo.text === "string"
+                  ? replyingTo.text.trim()
+                  : "",
+              fileUrl: replyingTo.fileUrl || null,
+            }
+          : null,
       };
 
       const response = await uploadFile(uploadData);
@@ -889,6 +907,24 @@ const GroupChat = () => {
         profilePicture: senderProfilePicture,
         text: messageText.trim(),
         file: recordedAudioFile,
+        replyTo: replyingTo
+          ? {
+              messageId: replyingTo._id || null,
+              senderName: replyingTo.senderName || "",
+              messageType: replyingTo.fileUrl
+                ? String(replyingTo.fileType || "")
+                    .toLowerCase()
+                    .startsWith("image/")
+                  ? "image"
+                  : "file"
+                : "text",
+              messageText:
+                typeof replyingTo.text === "string"
+                  ? replyingTo.text.trim()
+                  : "",
+              fileUrl: replyingTo.fileUrl || null,
+            }
+          : null,
       };
 
       const response = await uploadFile(uploadData);
@@ -1424,7 +1460,22 @@ const GroupChat = () => {
       text: messageText.trim(),
       createdAt: new Date().toISOString(),
       clientMessageId,
-      replyTo: replyingTo?._id || null,
+      replyTo: replyingTo
+        ? {
+            messageId: replyingTo._id || null,
+            senderName: replyingTo.senderName || "",
+            messageType: replyingTo.fileUrl
+              ? String(replyingTo.fileType || "")
+                  .toLowerCase()
+                  .startsWith("image/")
+                ? "image"
+                : "file"
+              : "text",
+            messageText:
+              typeof replyingTo.text === "string" ? replyingTo.text.trim() : "",
+            fileUrl: replyingTo.fileUrl || null,
+          }
+        : null,
       mentions: mentions.length > 0 ? mentions : [],
     };
 
@@ -1727,7 +1778,14 @@ const GroupChat = () => {
   const getReplyTargetMessage = (message) => {
     if (!message?.replyTo) return null;
 
-    if (typeof message.replyTo === "object" && message.replyTo.text) {
+    if (
+      typeof message.replyTo === "object" &&
+      (message.replyTo.messageId ||
+        message.replyTo.messageText ||
+        message.replyTo.fileUrl ||
+        message.replyTo.messageType ||
+        message.replyTo.text)
+    ) {
       return message.replyTo;
     }
 

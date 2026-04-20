@@ -308,6 +308,40 @@ const MessageItem = ({
 
   const bubbleClassName = `${bubbleBaseClass} ${bubbleCornerClass} ${bubbleToneClass} ${message.isDeleted ? "italic opacity-60" : ""} ${!message.isDeleted && reactions.length > 0 ? "pb-7" : ""}`;
 
+  const replySource =
+    message.replyTo && typeof message.replyTo === "object"
+      ? message.replyTo
+      : repliedMessage;
+
+  const replySenderName =
+    replySource?.senderName ||
+    repliedMessage?.senderName ||
+    "Replying to message";
+
+  const replyMessageType =
+    replySource?.messageType ||
+    (replySource?.fileUrl
+      ? String(replySource?.fileType || "")
+          .toLowerCase()
+          .startsWith("image/")
+        ? "image"
+        : "file"
+      : "text");
+
+  const replyMessageText =
+    typeof replySource?.messageText === "string"
+      ? replySource.messageText.trim()
+      : typeof replySource?.text === "string"
+        ? replySource.text.trim()
+        : "";
+
+  const replyMediaLabel =
+    replyMessageType === "image"
+      ? "📷 Image"
+      : replyMessageType === "file"
+        ? "📎 File"
+        : null;
+
   return (
     <div
       className={`w-full flex gap-2 mb-2 group ${
@@ -375,31 +409,25 @@ const MessageItem = ({
 
           {/* Reply Preview */}
           {!message.isDeleted && message.replyTo && (
-            <div
-              className={`mb-2 px-3 py-2 rounded-xl border-l-4 ${
-                isOwnMessage
-                  ? "bg-blue-400/15 border-blue-300/70 dark:bg-blue-950/25 dark:border-blue-300/60"
-                  : "bg-gray-100/90 border-blue-500/70 dark:bg-gray-800/95 dark:border-blue-400/70"
-              }`}
-            >
-              <p
-                className={`text-[11px] font-semibold leading-tight ${
-                  isOwnMessage
-                    ? "text-blue-100 dark:text-blue-200"
-                    : "text-blue-600 dark:text-blue-400"
-                }`}
-              >
-                {repliedMessage?.senderName || "Replying to message"}
+            <div className="mb-2 rounded-md border-l-4 border-blue-500 bg-gray-100 dark:bg-gray-800 p-2">
+              <p className="text-xs font-semibold text-blue-500 dark:text-blue-400 leading-tight">
+                {replySenderName}
               </p>
-              <p
-                className={`text-[11px] line-clamp-2 leading-snug ${
-                  isOwnMessage
-                    ? "text-white/70 dark:text-blue-100/80"
-                    : "text-gray-600 dark:text-gray-300"
-                }`}
-              >
-                {repliedMessage?.text || "Original message unavailable"}
-              </p>
+              {replyMediaLabel && (
+                <p className="text-xs font-semibold text-blue-500 dark:text-blue-400 leading-tight mt-0.5">
+                  {replyMediaLabel}
+                </p>
+              )}
+              {replyMessageText && (
+                <p className="text-xs opacity-80 text-gray-700 dark:text-gray-300 leading-snug mt-0.5 line-clamp-2">
+                  {replyMessageText}
+                </p>
+              )}
+              {!replyMediaLabel && !replyMessageText && (
+                <p className="text-xs opacity-80 text-gray-700 dark:text-gray-300 leading-snug mt-0.5">
+                  Message
+                </p>
+              )}
             </div>
           )}
 

@@ -26,6 +26,10 @@ const Message = require("./models/Message");
 const Student = require("./models/Student");
 const Group = require("./models/Group");
 const User = require("./models/User");
+const {
+  buildReplySnapshot,
+  sanitizeReplySnapshot,
+} = require("./utils/replySnapshot");
 
 dotenv.config();
 
@@ -199,6 +203,23 @@ io.on("connection", (socket) => {
     };
   };
 
+  const resolveReplySnapshot = async (replyTo) => {
+    const sanitizedReply = sanitizeReplySnapshot(replyTo);
+    if (sanitizedReply) {
+      return sanitizedReply;
+    }
+
+    const replyToMessageId =
+      typeof replyTo === "string"
+        ? replyTo
+        : replyTo?.messageId || replyTo?._id || replyTo?.replyToMessageId;
+
+    if (!replyToMessageId) return null;
+
+    const originalMessage = await Message.findById(replyToMessageId).lean();
+    return buildReplySnapshot(originalMessage);
+  };
+
   /**
    * Join a group chat room
    * Client emits: { groupId: "..." }
@@ -278,6 +299,8 @@ io.on("connection", (socket) => {
       console.log(" Saving message to chat_History collection...");
       console.log(`   Group: ${groupId}, Sender: ${senderContext.senderName}`);
 
+      const replySnapshot = await resolveReplySnapshot(replyTo);
+
       // Save message to database (automatically goes to chat_History collection)
       const newMessage = await Message.create({
         groupId,
@@ -285,7 +308,7 @@ io.on("connection", (socket) => {
         senderName: senderContext.senderName,
         profilePicture: profilePicture || null,
         text: trimmedText,
-        replyTo: replyTo || null,
+        replyTo: replySnapshot,
         mentions: Array.isArray(mentions) ? mentions : [],
       });
 
