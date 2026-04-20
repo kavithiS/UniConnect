@@ -12,6 +12,7 @@ const messageSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Student",
       required: [true, "Sender ID is required"],
+      alias: "senderId",
     },
     senderName: {
       type: String,
@@ -25,6 +26,7 @@ const messageSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: [5000, "Message cannot exceed 5000 characters"],
+      alias: "message",
     },
     fileUrl: {
       type: String, // URL or path to uploaded file
@@ -41,9 +43,31 @@ const messageSchema = new mongoose.Schema(
 
     // Reply functionality
     replyTo: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Message",
-      default: null, // null if not a reply
+      type: {
+        messageId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Message",
+          default: null,
+        },
+        senderName: {
+          type: String,
+          default: "",
+        },
+        messageType: {
+          type: String,
+          enum: ["text", "image", "file"],
+          default: "text",
+        },
+        messageText: {
+          type: String,
+          default: "",
+        },
+        fileUrl: {
+          type: String,
+          default: null,
+        },
+      },
+      default: null,
     },
     // Mentions - stores IDs of mentioned users
     mentions: [
@@ -115,6 +139,8 @@ const messageSchema = new mongoose.Schema(
   },
   {
     timestamps: true, // Adds createdAt and updatedAt
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   },
 );
 

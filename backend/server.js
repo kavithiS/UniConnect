@@ -3,6 +3,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const http = require("http");
 const net = require("net");
+const mongoose = require("mongoose");
 const { Server } = require("socket.io");
 const path = require("path");
 const connectDB = require("./config/db");
@@ -25,6 +26,10 @@ const Message = require("./models/Message");
 const Student = require("./models/Student");
 const Group = require("./models/Group");
 const User = require("./models/User");
+const {
+  buildReplySnapshot,
+  sanitizeReplySnapshot,
+} = require("./utils/replySnapshot");
 
 dotenv.config();
 
@@ -118,6 +123,103 @@ app.use((err, req, res, next) => {
 io.on("connection", (socket) => {
   console.log(`User connected: ${socket.id}`);
 
+  const normalizeDisplayName = (student, user, fallbackName) => {
+    const studentName =
+      `${student?.firstName || ""} ${student?.lastName || ""}`.trim();
+    if (studentName) return studentName;
+    if (user?.fullName) return user.fullName;
+    if (user?.name) return user.name;
+    if (user?.email) return user.email;
+    if (fallbackName) return fallbackName;
+    return "Unknown User";
+  };
+
+  const resolveChatSender = async (rawSenderId, fallbackName) => {
+    if (!rawSenderId) {
+      throw new Error("senderId is required");
+    }
+
+    const senderIdString = String(rawSenderId);
+    const isObjectId = mongoose.Types.ObjectId.isValid(senderIdString);
+
+    let student = null;
+    let user = null;
+
+    if (isObjectId) {
+      student = await Student.findById(senderIdString).lean();
+      if (!student) {
+        user = await User.findById(senderIdString).lean();
+      }
+    }
+
+    if (!student) {
+      student = await Student.findOne({ userId: senderIdString }).lean();
+    }
+
+    if (
+      !user &&
+      student?.userId &&
+      mongoose.Types.ObjectId.isValid(student.userId)
+    ) {
+      user = await User.findById(student.userId).lean();
+    }
+
+    if (!student && user) {
+      const [firstName = "User", ...lastNameParts] = String(
+        user.fullName || user.name || "User",
+      )
+        .trim()
+        .split(/\s+/);
+
+      student = await Student.findOneAndUpdate(
+        { userId: String(user._id) },
+        {
+          $setOnInsert: {
+            userId: String(user._id),
+            firstName,
+            lastName: lastNameParts.join(" ") || "Member",
+            email: user.email || `user-${user._id}@placeholder.local`,
+          },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      ).lean();
+    }
+
+    if (!student && !user) {
+      throw new Error("Sender not found");
+    }
+
+    const membershipIds = [
+      senderIdString,
+      student?._id ? String(student._id) : null,
+      student?.userId ? String(student.userId) : null,
+      user?._id ? String(user._id) : null,
+    ].filter(Boolean);
+
+    return {
+      student,
+      senderName: normalizeDisplayName(student, user, fallbackName),
+      membershipIds: [...new Set(membershipIds)],
+    };
+  };
+
+  const resolveReplySnapshot = async (replyTo) => {
+    const sanitizedReply = sanitizeReplySnapshot(replyTo);
+    if (sanitizedReply) {
+      return sanitizedReply;
+    }
+
+    const replyToMessageId =
+      typeof replyTo === "string"
+        ? replyTo
+        : replyTo?.messageId || replyTo?._id || replyTo?.replyToMessageId;
+
+    if (!replyToMessageId) return null;
+
+    const originalMessage = await Message.findById(replyToMessageId).lean();
+    return buildReplySnapshot(originalMessage);
+  };
+
   /**
    * Join a group chat room
    * Client emits: { groupId: "..." }
@@ -156,17 +258,57 @@ io.on("connection", (socket) => {
         mentions,
       } = data;
 
+      if (!groupId || !senderId) {
+        socket.emit("message_error", {
+          message: "groupId and senderId are required",
+        });
+        return;
+      }
+
+      const trimmedText = typeof text === "string" ? text.trim() : "";
+      if (!trimmedText) {
+        socket.emit("message_error", {
+          message: "Message text cannot be empty",
+        });
+        return;
+      }
+
+      const group = await Group.findById(groupId).select("_id members").lean();
+      if (!group) {
+        socket.emit("message_error", {
+          message: "Group not found",
+        });
+        return;
+      }
+
+      const senderContext = await resolveChatSender(senderId, senderName);
+      const groupMemberIds = new Set(
+        (group.members || []).map((memberId) => String(memberId)),
+      );
+      const isMember = senderContext.membershipIds.some((id) =>
+        groupMemberIds.has(id),
+      );
+
+      if (!isMember) {
+        socket.emit("message_error", {
+          message: "Only group members can send messages",
+        });
+        return;
+      }
+
       console.log(" Saving message to chat_History collection...");
-      console.log(`   Group: ${groupId}, Sender: ${senderName}`);
+      console.log(`   Group: ${groupId}, Sender: ${senderContext.senderName}`);
+
+      const replySnapshot = await resolveReplySnapshot(replyTo);
 
       // Save message to database (automatically goes to chat_History collection)
       const newMessage = await Message.create({
         groupId,
-        sender: senderId,
-        senderName,
+        sender: senderContext.student?._id || senderId,
+        senderName: senderContext.senderName,
         profilePicture: profilePicture || null,
-        text,
-        replyTo: replyTo || null,
+        text: trimmedText,
+        replyTo: replySnapshot,
         mentions: Array.isArray(mentions) ? mentions : [],
       });
 
@@ -193,6 +335,7 @@ io.on("connection", (socket) => {
 
       // Broadcast message to all users in the group room
       io.to(groupId).emit("receive_message", messageToSend);
+      io.to(groupId).emit("receiveMessage", messageToSend);
 
       console.log(`📤 Message broadcasted to group: ${groupId}`);
     } catch (error) {
@@ -256,6 +399,28 @@ io.on("connection", (socket) => {
       });
     } catch (error) {
       console.error("Error handling reaction:", error);
+    }
+  });
+
+  /**
+   * Message deleted sync
+   * Client emits: { groupId, messageId }
+   */
+  socket.on("delete_message", async (data) => {
+    try {
+      const { groupId, messageId } = data || {};
+      if (!groupId || !messageId) return;
+
+      const message = await Message.findById(messageId).lean();
+      if (!message) return;
+
+      io.to(groupId).emit("message_deleted", {
+        groupId,
+        messageId,
+        deletedAt: message.updatedAt || new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error handling message delete sync:", error);
     }
   });
 
@@ -366,140 +531,9 @@ const seedDatabase = async () => {
       return;
     }
 
-    console.log("📦 Database is empty. Creating initial data...\n");
-
-    // Dummy Students Data
-    const dummyStudents = [
-      {
-        userId: "S001",
-        firstName: "John",
-        lastName: "Smith",
-        email: "john.smith@university.edu",
-        university: "SLIIT",
-        degree: "Computer Science",
-        currentYear: 3,
-        currentSemester: 2,
-        gpa: 3.8,
-        bio: "Passionate about web development and AI",
-        skills: ["JavaScript", "React", "Node.js", "Python"],
-        interests: ["Machine Learning", "Web Development"],
-      },
-      {
-        userId: "S002",
-        firstName: "Emma",
-        lastName: "Johnson",
-        email: "emma.johnson@university.edu",
-        university: "SLIIT",
-        degree: "Software Engineering",
-        currentYear: 3,
-        currentSemester: 2,
-        gpa: 3.7,
-        bio: "Full-stack developer interested in cloud computing",
-        skills: ["Java", "Spring Boot", "MongoDB", "AWS"],
-        interests: ["Cloud Computing", "DevOps"],
-      },
-      {
-        userId: "S003",
-        firstName: "Michael",
-        lastName: "Brown",
-        email: "michael.brown@university.edu",
-        university: "SLIIT",
-        degree: "Computer Science",
-        currentYear: 3,
-        currentSemester: 2,
-        gpa: 3.6,
-        bio: "Mobile app developer and UI/UX enthusiast",
-        skills: ["React Native", "Flutter", "Figma", "UI Design"],
-        interests: ["Mobile Development", "UI/UX Design"],
-      },
-      {
-        userId: "S004",
-        firstName: "Sarah",
-        lastName: "Davis",
-        email: "sarah.davis@university.edu",
-        university: "SLIIT",
-        degree: "Information Technology",
-        currentYear: 3,
-        currentSemester: 2,
-        gpa: 3.9,
-        bio: "Data science and analytics specialist",
-        skills: ["Python", "Data Analysis", "TensorFlow", "SQL"],
-        interests: ["Data Science", "Analytics"],
-      },
-    ];
-
-    // Create students
-    const students = await Student.insertMany(dummyStudents);
-    console.log(`✓ Created ${students.length} students`);
-
-    // Get student IDs
-    const studentIds = students.map((student) => student._id);
-    // Keep available slots so join-request features can be tested immediately
-    const initialMembers = studentIds.slice(0, 2);
-
-    // Create a group with all students as members
-    const dummyGroup = await Group.create({
-      title: "ITPM Project Group 01",
-      description:
-        "Project group for course ITPM. Collaborate and build the final project together.",
-      members: initialMembers,
-      createdBy: initialMembers[0],
-      memberLimit: 5,
-      requiredSkills: ["JavaScript", "Node.js", "React"],
-      status: "active",
-    });
-    console.log(`✓ Created group: ${dummyGroup.title}`);
-
-    // Create initial messages
-    const initialMessages = [
-      {
-        groupId: dummyGroup._id,
-        sender: studentIds[0],
-        senderName: "John Smith",
-        text: "Hey everyone! Welcome to our project group. Let's build something amazing! 🚀",
-      },
-      {
-        groupId: dummyGroup._id,
-        sender: studentIds[1],
-        senderName: "Emma Johnson",
-        text: "Excited to work with you all! When should we schedule our first meeting?",
-      },
-      {
-        groupId: dummyGroup._id,
-        sender: studentIds[2],
-        senderName: "Michael Brown",
-        text: "I'm free this weekend. How about Saturday afternoon?",
-      },
-      {
-        groupId: dummyGroup._id,
-        sender: studentIds[3],
-        senderName: "Sarah Davis",
-        text: "Saturday works for me too! I'll prepare some initial data analysis.",
-      },
-    ];
-
-    await Message.insertMany(initialMessages);
-    console.log(`✓ Created ${initialMessages.length} initial messages`);
-
-    console.log("✓ DATABASE INITIALIZED SUCCESSFULLY");
-
-    console.log("📌 STUDENT DETAILS:");
-    students.forEach((student) => {
-      console.log(
-        `   • ${student.firstName} ${student.lastName} (${student.userId})`,
-      );
-      console.log(`     MongoDB ID: ${student._id}`);
-    });
-
-    console.log(`\n👥 GROUP CREATED:`);
-    console.log(`   • Name: ${dummyGroup.title}`);
-    console.log(`   • Group ID: ${dummyGroup._id}`);
-    console.log(`   • Members: ${dummyGroup.members.length}`);
-
-    console.log(`\n📋 COPY THESE IDS FOR FRONTEND:`);
-    console.log(`   • Group ID: ${dummyGroup._id}`);
-    console.log(`   • John Smith ID: ${students[0]._id}`);
-    console.log(`   • Emma Johnson ID: ${students[1]._id}\n`);
+    console.log(
+      "ℹ Database has no students/groups yet. Skipping dummy chat data seeding.",
+    );
   } catch (error) {
     console.error("Error seeding database:", error.message);
   }

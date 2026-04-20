@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
 import { io } from "socket.io-client";
 import {
@@ -21,8 +21,8 @@ import {
   leaveGroup,
 } from "../../services/chatService";
 import { getBackendBaseUrl } from "../../utils/backendUrl";
-import { getMockGroupById, isMockGroupId } from "../../data/mockGroups";
 import studentService from "../../services/studentService";
+import { fetchCurrentUser, getAuthToken } from "../../services/authService";
 import {
   FaPaperPlane,
   FaPaperclip,
@@ -88,9 +88,48 @@ const mergeMessages = (baseMessages, incomingMessages) => {
   );
 };
 
+const MAX_UPLOAD_SIZE_MB = 10;
+const MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
+const ALLOWED_UPLOAD_MIME_TYPES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/zip",
+  "application/x-rar-compressed",
+  "application/x-7z-compressed",
+  "image/jpeg",
+  "image/png",
+]);
+const ALLOWED_UPLOAD_EXTENSIONS = new Set([
+  ".zip",
+  ".rar",
+  ".7z",
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".jpg",
+  ".jpeg",
+  ".png",
+]);
+
+const getFileExtension = (fileName = "") => {
+  const dotIndex = fileName.lastIndexOf(".");
+  if (dotIndex < 0) return "";
+  return fileName.slice(dotIndex).toLowerCase();
+};
+
+const isAllowedUploadFile = (file) => {
+  const normalizedMimeType = (file?.type || "").toLowerCase();
+  const extension = getFileExtension(file?.name || "");
+  const isImageMime = normalizedMimeType.startsWith("image/");
+  const isAllowedByMime =
+    ALLOWED_UPLOAD_MIME_TYPES.has(normalizedMimeType) || isImageMime;
+  const isAllowedByExtension = ALLOWED_UPLOAD_EXTENSIONS.has(extension);
+  return isAllowedByMime || isAllowedByExtension;
+};
+
 const GroupChat = () => {
   const { isDarkMode } = useTheme();
-  const navigate = useNavigate();
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const previewGroupIdFromQuery = searchParams.get("groupId");
@@ -107,11 +146,12 @@ const GroupChat = () => {
       globalThis.location.origin,
     );
   };
-  // Get current user from localStorage (set by StudentProfile)
-  const storedFirstName = localStorage.getItem("userFirstName") || "John";
-  const storedLastName = localStorage.getItem("userLastName") || "Smith";
-  // do NOT default to an invalid id like 'S001' — prefer null so code validates correctly
-  const storedUserId = localStorage.getItem("userId") || null;
+  // Current authenticated user id (User collection)
+  const initialAuthUserId =
+    localStorage.getItem("userId") ||
+    localStorage.getItem("currentUserId") ||
+    null;
+  const [currentUserId, setCurrentUserId] = useState(initialAuthUserId);
   const storedProfilePicture = localStorage.getItem("userProfilePicture");
 
   // Dynamically load group ID from database instead of hardcoding
@@ -290,47 +330,71 @@ const GroupChat = () => {
   }, []);
 
   useEffect(() => {
-    const fetchCurrentUser = async () => {
+    const resolveChatIdentity = async () => {
+      const token = getAuthToken();
+
       try {
-        // First try to fetch all students and find the current user
+        let resolvedAuthUser = null;
+
+        if (token) {
+          resolvedAuthUser = await fetchCurrentUser(token);
+          if (resolvedAuthUser?._id) {
+            const authId = String(resolvedAuthUser._id);
+            localStorage.setItem("userId", authId);
+            localStorage.setItem("currentUserId", authId);
+            setCurrentUserId(authId);
+          }
+        }
+
+        const authId = resolvedAuthUser?._id
+          ? String(resolvedAuthUser._id)
+          : initialAuthUserId;
+
+        if (!authId) {
+          setSenderId(null);
+          setSenderName(null);
+          return;
+        }
+
         const response = await studentService.getAllStudents();
         const students = response.data || [];
 
-        if (students.length > 0) {
-          // For now, use the first student (or find by userId from localStorage)
-          // Try to match by _id or by a legacy userId field, otherwise fallback to first student
-          const currentUser =
-            students.find(
-              (s) =>
-                (s._id && s._id.toString() === storedUserId) ||
-                (s.userId && s.userId === storedUserId),
-            ) || students[0];
+        const matchingStudent = students.find(
+          (student) =>
+            String(student?.userId || "") === authId ||
+            String(student?._id || "") === authId,
+        );
 
-          setSenderId(currentUser._id);
-          setSenderName(`${currentUser.firstName} ${currentUser.lastName}`);
+        if (matchingStudent?._id) {
+          setSenderId(String(matchingStudent._id));
+          setSenderName(
+            `${matchingStudent.firstName || ""} ${matchingStudent.lastName || ""}`.trim() ||
+              resolvedAuthUser?.fullName ||
+              resolvedAuthUser?.name ||
+              resolvedAuthUser?.email ||
+              "User",
+          );
 
-          if (currentUser.profilePicture) {
-            setSenderProfilePicture(currentUser.profilePicture);
+          if (matchingStudent.profilePicture) {
+            setSenderProfilePicture(matchingStudent.profilePicture);
           }
-
-          console.log(
-            "✓ Loaded current user for chat:",
-            currentUser.firstName,
-            currentUser.lastName,
+        } else {
+          // Use authenticated user id as sender fallback; backend resolves/creates linked student when needed.
+          setSenderId(authId);
+          setSenderName(
+            resolvedAuthUser?.fullName ||
+              resolvedAuthUser?.name ||
+              resolvedAuthUser?.email ||
+              "User",
           );
         }
       } catch (err) {
-        console.warn(
-          "Could not fetch current user, using localStorage data:",
-          err.message,
-        );
-        // Fallback to using just the localStorage values
-        setSenderName(`${storedFirstName} ${storedLastName}`);
+        console.warn("Could not resolve chat identity:", err.message);
       }
     };
 
-    fetchCurrentUser();
-  }, []);
+    resolveChatIdentity();
+  }, [initialAuthUserId]);
 
   useEffect(() => {
     const initializeChat = async () => {
@@ -340,7 +404,7 @@ const GroupChat = () => {
         // Step 1: Resolve selected group from active selection or current user's groups.
         const preferredGroupId = localStorage.getItem("activeGroupId");
         let selectedGroupId = groupId;
-        const currentStudentId = senderId || storedUserId;
+        const currentStudentId = currentUserId;
         if (!selectedGroupId) {
           if (currentStudentId) {
             try {
@@ -398,21 +462,6 @@ const GroupChat = () => {
 
         // Step 3: Fetch detailed group info with members
         try {
-          if (isMockGroupId(selectedGroupId)) {
-            const mockGroup = getMockGroupById(selectedGroupId);
-            if (mockGroup) {
-              setGroupDetails({
-                ...mockGroup,
-                groupName: mockGroup.groupName || mockGroup.title,
-              });
-              setGroupMembers(mockGroup.members || []);
-              setPinnedMessages([]);
-              setMessages([]);
-              setIsLoading(false);
-              return;
-            }
-          }
-
           const groupResponse = await getGroupDetails(selectedGroupId);
           // Backend: { success: true, data: { groupName, members: [...], ... } }
           // Service returns response.data = { success: true, data: {...} }
@@ -472,7 +521,6 @@ const GroupChat = () => {
             localStorage.getItem(`removed_messages_${selectedGroupId}`) || "[]",
           );
 
-          // If we got real messages from server, use them instead of dummy
           if (Array.isArray(fetchedMessages) && fetchedMessages.length > 0) {
             // Filter out completely removed messages and mark hidden ones
             const messagesWithHidden = fetchedMessages
@@ -483,7 +531,7 @@ const GroupChat = () => {
                   : msg,
               );
             // Replace state during hydration so only this group's messages are shown.
-            setMessages(messagesWithHidden);
+            setMessages(mergeMessages([], messagesWithHidden));
           } else {
             setMessages([]);
           }
@@ -514,46 +562,22 @@ const GroupChat = () => {
       socket.off("user_typing");
       socket.off("user_stop_typing");
     };
-  }, [groupId, chatSelectionNonce, senderId, storedUserId]);
+  }, [groupId, chatSelectionNonce, senderId, currentUserId]);
 
   /**
    * Socket.IO: Listen for incoming messages
    */
   useEffect(() => {
-    socket.on("receive_message", (message) => {
+    const handleIncomingMessage = (message) => {
       if (!message || String(message.groupId) !== String(groupId)) {
         return;
       }
 
-      setMessages((prevMessages) => {
-        // Check 1: Exact ID match (for duplicate server messages)
-        const messageExists = prevMessages.some(
-          (msg) => msg._id === message._id,
-        );
-        if (messageExists) {
-          return prevMessages;
-        }
+      setMessages((prevMessages) => mergeMessages(prevMessages, [message]));
+    };
 
-        // Check 2: Match by clientMessageId (for replacing optimistic messages)
-        // This is the PRIMARY deduplication method
-        if (message.clientMessageId) {
-          const optimisticIndex = prevMessages.findIndex(
-            (msg) => msg.clientMessageId === message.clientMessageId,
-          );
-
-          if (optimisticIndex !== -1) {
-            // Found the optimistic message - replace it with the real one
-            const updatedMessages = [...prevMessages];
-            updatedMessages[optimisticIndex] = message; // Replace temp with real message
-
-            return updatedMessages;
-          }
-        }
-
-        // Otherwise, add as new message
-        return [...prevMessages, message];
-      });
-    });
+    socket.on("receive_message", handleIncomingMessage);
+    socket.on("receiveMessage", handleIncomingMessage);
 
     socket.on("user_typing", (data) => {
       if (data.senderName !== senderName) {
@@ -579,11 +603,40 @@ const GroupChat = () => {
       );
     });
 
+    socket.on("message_deleted", ({ messageId, deletedAt }) => {
+      if (!messageId) return;
+
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg._id === messageId
+            ? {
+                ...msg,
+                isDeleted: true,
+                text: "[This message was deleted]",
+                reactions: [],
+                mentions: [],
+                replyTo: null,
+                isEdited: false,
+                editedAt: null,
+                isForwarded: false,
+                fileUrl: null,
+                fileName: null,
+                fileType: null,
+                fileSize: null,
+                deletedAt: deletedAt || new Date().toISOString(),
+              }
+            : msg,
+        ),
+      );
+    });
+
     return () => {
       socket.off("receive_message");
+      socket.off("receiveMessage");
       socket.off("user_typing");
       socket.off("user_stop_typing");
       socket.off("reaction_added");
+      socket.off("message_deleted");
     };
   }, [senderName, groupId]);
 
@@ -639,11 +692,20 @@ const GroupChat = () => {
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Check file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        alert("File size must be less than 10MB");
+      if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+        alert(`File size must be less than ${MAX_UPLOAD_SIZE_MB}MB`);
+        e.target.value = "";
         return;
       }
+
+      if (!isAllowedUploadFile(file)) {
+        alert(
+          "Unsupported file type. Allowed: .zip, .rar, .7z, .pdf, .doc, .docx, .jpg, .png",
+        );
+        e.target.value = "";
+        return;
+      }
+
       setRecordedAudioFile(null);
       setSelectedFile(file);
     }
@@ -671,19 +733,28 @@ const GroupChat = () => {
         profilePicture: senderProfilePicture,
         text: messageText.trim(), // Optional caption
         file: selectedFile,
+        replyTo: replyingTo
+          ? {
+              messageId: replyingTo._id || null,
+              senderName: replyingTo.senderName || "",
+              messageType: replyingTo.fileUrl
+                ? String(replyingTo.fileType || "")
+                    .toLowerCase()
+                    .startsWith("image/")
+                  ? "image"
+                  : "file"
+                : "text",
+              messageText:
+                typeof replyingTo.text === "string"
+                  ? replyingTo.text.trim()
+                  : "",
+              fileUrl: replyingTo.fileUrl || null,
+            }
+          : null,
       };
 
       const response = await uploadFile(uploadData);
       const fileMessage = response.data;
-
-      // Optimistic UI update - add file message immediately
-      const optimisticFileMessage = {
-        ...fileMessage,
-        _id: fileMessage._id || `temp-${Date.now()}`,
-        createdAt: fileMessage.createdAt || new Date().toISOString(),
-      };
-
-      setMessages((prevMessages) => [...prevMessages, optimisticFileMessage]);
 
       // Broadcast file message to all group members via socket
       socket.emit("send_file", {
@@ -701,7 +772,9 @@ const GroupChat = () => {
       setIsSending(false);
     } catch (err) {
       console.error("Error uploading file:", err);
-      alert("Failed to upload file");
+      const backendMessage =
+        err?.response?.data?.message || err?.message || "Failed to upload file";
+      alert(backendMessage);
       setIsSending(false);
     }
   };
@@ -885,18 +958,28 @@ const GroupChat = () => {
         profilePicture: senderProfilePicture,
         text: messageText.trim(),
         file: recordedAudioFile,
+        replyTo: replyingTo
+          ? {
+              messageId: replyingTo._id || null,
+              senderName: replyingTo.senderName || "",
+              messageType: replyingTo.fileUrl
+                ? String(replyingTo.fileType || "")
+                    .toLowerCase()
+                    .startsWith("image/")
+                  ? "image"
+                  : "file"
+                : "text",
+              messageText:
+                typeof replyingTo.text === "string"
+                  ? replyingTo.text.trim()
+                  : "",
+              fileUrl: replyingTo.fileUrl || null,
+            }
+          : null,
       };
 
       const response = await uploadFile(uploadData);
       const voiceMessage = response.data;
-
-      const optimisticVoiceMessage = {
-        ...voiceMessage,
-        _id: voiceMessage._id || `temp-${Date.now()}`,
-        createdAt: voiceMessage.createdAt || new Date().toISOString(),
-      };
-
-      setMessages((prevMessages) => [...prevMessages, optimisticVoiceMessage]);
 
       socket.emit("send_file", {
         groupId,
@@ -937,6 +1020,23 @@ const GroupChat = () => {
       isOwnMessage: data.isOwnMessage,
     });
   };
+
+  const toDeletedMessageState = (message) => ({
+    ...message,
+    isDeleted: true,
+    text: "[This message was deleted]",
+    reactions: [],
+    mentions: [],
+    replyTo: null,
+    isEdited: false,
+    editedAt: null,
+    isForwarded: false,
+    fileUrl: null,
+    fileName: null,
+    fileType: null,
+    fileSize: null,
+    deletedAt: new Date().toISOString(),
+  });
 
   /**
    * Handle edit message
@@ -1036,12 +1136,15 @@ const GroupChat = () => {
         // First delete: mark as deleted
         await deleteMessage(messageToDelete, senderId);
 
+        socket.emit("delete_message", {
+          groupId,
+          messageId: messageToDelete,
+        });
+
         // Update message in local state
         setMessages(
           messages.map((m) =>
-            m._id === messageToDelete
-              ? { ...m, isDeleted: true, text: "[This message was deleted]" }
-              : m,
+            m._id === messageToDelete ? toDeletedMessageState(m) : m,
           ),
         );
       }
@@ -1052,9 +1155,7 @@ const GroupChat = () => {
       if (err?.response?.status === 404) {
         setMessages(
           messages.map((m) =>
-            m._id === messageToDelete
-              ? { ...m, isDeleted: true, text: "[This message was deleted]" }
-              : m,
+            m._id === messageToDelete ? toDeletedMessageState(m) : m,
           ),
         );
         setShowDeleteDialog(false);
@@ -1379,6 +1480,11 @@ const GroupChat = () => {
 
     if (!messageText.trim() && !selectedFile && !recordedAudioFile) return;
 
+    if (!groupId || !senderId || !senderName) {
+      console.warn("Chat identity or group is not ready yet.");
+      return;
+    }
+
     if (recordedAudioFile) {
       handleSendRecordedVoiceMessage();
       return;
@@ -1405,16 +1511,24 @@ const GroupChat = () => {
       text: messageText.trim(),
       createdAt: new Date().toISOString(),
       clientMessageId,
-      replyTo: replyingTo?._id || null,
+      replyTo: replyingTo
+        ? {
+            messageId: replyingTo._id || null,
+            senderName: replyingTo.senderName || "",
+            messageType: replyingTo.fileUrl
+              ? String(replyingTo.fileType || "")
+                  .toLowerCase()
+                  .startsWith("image/")
+                ? "image"
+                : "file"
+              : "text",
+            messageText:
+              typeof replyingTo.text === "string" ? replyingTo.text.trim() : "",
+            fileUrl: replyingTo.fileUrl || null,
+          }
+        : null,
       mentions: mentions.length > 0 ? mentions : [],
     };
-
-    const optimisticMessage = {
-      ...messageData,
-      _id: `temp-${Date.now()}`,
-    };
-
-    setMessages((prevMessages) => [...prevMessages, optimisticMessage]);
 
     socket.emit("send_message", messageData);
 
@@ -1473,6 +1587,11 @@ const GroupChat = () => {
             // First delete: mark as deleted
             try {
               await deleteMessage(messageId, senderId);
+
+              socket.emit("delete_message", {
+                groupId,
+                messageId,
+              });
             } catch (err) {
               console.error("Bulk delete failed for message:", messageId, err);
             }
@@ -1486,11 +1605,7 @@ const GroupChat = () => {
           selectedMessageIds.includes(message._id) &&
           isMyMessage(message) &&
           !message.isDeleted
-            ? {
-                ...message,
-                isDeleted: true,
-                text: "[This message was deleted]",
-              }
+            ? toDeletedMessageState(message)
             : message,
         ),
       );
@@ -1690,9 +1805,22 @@ const GroupChat = () => {
   /**
    * Get file icon based on file type
    */
-  const getFileIcon = (fileType) => {
-    if (!fileType) return "📄";
-    if (fileType.startsWith("image/")) return "🖼️";
+  const getFileIcon = (file) => {
+    const fileType = String(file?.type || "").toLowerCase();
+    const fileExt = getFileExtension(file?.name || "");
+    if (!fileType && !fileExt) return "📄";
+    if (
+      fileType.startsWith("image/") ||
+      [".jpg", ".jpeg", ".png"].includes(fileExt)
+    )
+      return "🖼️";
+    if (
+      fileType === "application/zip" ||
+      fileType === "application/x-rar-compressed" ||
+      fileType === "application/x-7z-compressed" ||
+      [".zip", ".rar", ".7z"].includes(fileExt)
+    )
+      return "📦";
     if (fileType === "application/pdf") return "📕";
     if (fileType.includes("word")) return "📘";
     if (fileType.includes("excel")) return "📗";
@@ -1714,7 +1842,14 @@ const GroupChat = () => {
   const getReplyTargetMessage = (message) => {
     if (!message?.replyTo) return null;
 
-    if (typeof message.replyTo === "object" && message.replyTo.text) {
+    if (
+      typeof message.replyTo === "object" &&
+      (message.replyTo.messageId ||
+        message.replyTo.messageText ||
+        message.replyTo.fileUrl ||
+        message.replyTo.messageType ||
+        message.replyTo.text)
+    ) {
       return message.replyTo;
     }
 
@@ -1775,6 +1910,7 @@ const GroupChat = () => {
     ) {
       try {
         const memberId =
+          currentUserId ||
           senderId ||
           localStorage.getItem("userId") ||
           localStorage.getItem("currentUserId") ||
@@ -1788,13 +1924,6 @@ const GroupChat = () => {
         }
 
         const currentGroupId = groupId || localStorage.getItem("activeGroupId");
-
-        if (currentGroupId && isMockGroupId(currentGroupId)) {
-          resetGroupViewAfterLeave(currentGroupId);
-          console.log("Left mock group successfully");
-          alert("You have left the group.");
-          return;
-        }
 
         await leaveGroup(currentGroupId || groupId, memberId);
         console.log("Left group successfully");
@@ -1858,12 +1987,12 @@ const GroupChat = () => {
               <li>
                 Run:{" "}
                 <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded text-blue-900 dark:text-blue-200">
-                  node backend/seedDummyData.js
+                  npm run dev
                 </code>
               </li>
-              <li>Copy the Group ID from terminal output</li>
-              <li>Update DUMMY_GROUP_ID in GroupChat.jsx</li>
-              <li>Refresh this page</li>
+              <li>Sign in and join an existing group</li>
+              <li>Open Group Details and click Open Group Chat</li>
+              <li>Refresh this page after backend is running</li>
             </ol>
           </div>
         </div>
@@ -2195,9 +2324,7 @@ const GroupChat = () => {
           {selectedFile && (
             <div className="mb-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-400/30 rounded-lg p-3 flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <span className="text-2xl">
-                  {getFileIcon(selectedFile.type)}
-                </span>
+                <span className="text-2xl">{getFileIcon(selectedFile)}</span>
                 <div>
                   <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
                     {selectedFile.name}
@@ -2235,7 +2362,7 @@ const GroupChat = () => {
               ref={fileInputRef}
               onChange={handleFileSelect}
               className="hidden"
-              accept="image/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+              accept=".zip,.rar,.7z,.pdf,.doc,.docx,.jpg,.png"
             />
 
             {/* Message Input */}
@@ -2356,7 +2483,7 @@ const GroupChat = () => {
                           ? "Edit message..."
                           : "Type a message... @ to mention"
                       }
-                      className={`flex-1 bg-transparent outline-none placeholder-opacity-70 ${isDarkMode ? "text-gray-200 placeholder-gray-400" : "text-gray-800 placeholder-gray-500"}`}
+                      className={`flex-1 bg-transparent border-none outline-none ring-0 focus:outline-none focus:ring-0 placeholder-opacity-70 ${isDarkMode ? "text-gray-200 placeholder-gray-400" : "text-gray-800 placeholder-gray-500"}`}
                       disabled={isSending}
                     />
 

@@ -54,7 +54,7 @@ const EmojiReactionPicker = ({ onReactionSelect, onClose, position }) => {
         top: `${safePosition.y}px`,
         zIndex: 100,
       }}
-      className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-full shadow-2xl px-3 py-2 flex items-center gap-1 animate-fadeIn"
+      className="bg-white dark:bg-gray-800 rounded-full shadow-lg px-3 py-2 flex items-center gap-1 animate-fadeIn"
     >
       {quickReactions.map((emoji, index) => (
         <button

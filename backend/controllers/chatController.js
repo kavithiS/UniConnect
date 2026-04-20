@@ -4,6 +4,27 @@ const Student = require("../models/Student");
 const mongoose = require("mongoose");
 const path = require("path");
 const fs = require("fs");
+const {
+  buildReplySnapshot,
+  sanitizeReplySnapshot,
+} = require("../utils/replySnapshot");
+
+const resolveReplySnapshot = async (replyTo) => {
+  const sanitizedReply = sanitizeReplySnapshot(replyTo);
+  if (sanitizedReply) {
+    return sanitizedReply;
+  }
+
+  const replyToMessageId =
+    typeof replyTo === "string"
+      ? replyTo
+      : replyTo?.messageId || replyTo?._id || replyTo?.replyToMessageId;
+
+  if (!replyToMessageId) return null;
+
+  const originalMessage = await Message.findById(replyToMessageId).lean();
+  return buildReplySnapshot(originalMessage);
+};
 
 /**
  * Get all messages for a specific group
@@ -20,7 +41,6 @@ exports.getMessages = async (req, res) => {
     // Note: Group doesn't need to exist for messages to be retrieved
     const messages = await Message.find({ groupId })
       .populate("sender", "name email") // Populate sender details
-      .populate("replyTo", "text senderName")
       .sort({ createdAt: 1 }) // Oldest messages first
       .lean();
 
@@ -74,13 +94,15 @@ exports.sendMessage = async (req, res) => {
 
     // Create new message
     // Note: Group doesn't need to exist for messages to be created
+    const replySnapshot = await resolveReplySnapshot(replyTo);
+
     const newMessage = await Message.create({
       groupId,
       sender: senderId,
       senderName,
       profilePicture: profilePicture || null,
       text: text.trim(),
-      replyTo: replyTo || null,
+      replyTo: replySnapshot,
       mentions: Array.isArray(mentions) ? mentions : [],
     });
 
@@ -121,7 +143,8 @@ exports.uploadFile = async (req, res) => {
         : "NO FILE",
     );
 
-    const { groupId, senderId, senderName, profilePicture, text } = req.body;
+    const { groupId, senderId, senderName, profilePicture, text, replyTo } =
+      req.body;
     const file = req.file;
 
     // Validate required fields
@@ -170,6 +193,8 @@ exports.uploadFile = async (req, res) => {
       `   File: ${file.originalname} (${file.size} bytes, ${file.mimetype})`,
     );
 
+    const replySnapshot = await resolveReplySnapshot(replyTo);
+
     const newMessage = await Message.create({
       groupId,
       sender: senderId,
@@ -180,6 +205,7 @@ exports.uploadFile = async (req, res) => {
       fileName: file.originalname,
       fileType: file.mimetype,
       fileSize: file.size,
+      replyTo: replySnapshot,
     });
 
     console.log(`✅ File message saved to chat_History!`);
@@ -379,6 +405,14 @@ exports.deleteMessage = async (req, res) => {
     message.text = "[This message was deleted]";
     message.fileUrl = null;
     message.fileName = null;
+    message.fileType = null;
+    message.fileSize = null;
+    message.reactions = [];
+    message.mentions = [];
+    message.replyTo = null;
+    message.isEdited = false;
+    message.editedAt = null;
+    message.isForwarded = false;
 
     await message.save();
 
@@ -595,13 +629,15 @@ exports.replyToMessage = async (req, res) => {
       });
     }
 
+    const replySnapshot = buildReplySnapshot(originalMessage);
+
     // Create the reply message
     const replyMessage = await Message.create({
       groupId,
       sender: senderId,
       senderName,
       text: text.trim(),
-      replyTo: replyToMessageId,
+      replyTo: replySnapshot,
     });
 
     await replyMessage.populate("sender", "name email");

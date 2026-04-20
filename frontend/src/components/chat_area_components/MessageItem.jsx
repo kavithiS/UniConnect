@@ -12,7 +12,6 @@ import {
   FaFileCode,
   FaFileAlt,
   FaFile,
-  FaDownload,
 } from "react-icons/fa";
 import { getBackendBaseUrl } from "../../utils/backendUrl";
 
@@ -41,11 +40,29 @@ const MessageItem = ({
   };
 
   const messageLinks = detectLinks(message.text);
+  const URL_PREVIEW_LENGTH = 30;
+
+  const isCompressedArchive = (fileName = "", fileType = "") => {
+    const normalizedType = String(fileType || "").toLowerCase();
+    const normalizedName = String(fileName || "").toLowerCase();
+    return (
+      normalizedType === "application/zip" ||
+      normalizedType === "application/x-rar-compressed" ||
+      normalizedType === "application/x-7z-compressed" ||
+      /\.(zip|rar|7z)$/i.test(normalizedName)
+    );
+  };
 
   // Render text with clickable links
   const renderTextWithLinks = () => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const parts = message.text.split(urlRegex);
+    const getLinkPreviewText = (url) => {
+      if (!url) return "";
+      return url.length > URL_PREVIEW_LENGTH
+        ? `${url.slice(0, URL_PREVIEW_LENGTH)}...`
+        : url;
+    };
 
     return parts.map((part, index) => {
       if (urlRegex.test(part)) {
@@ -56,10 +73,10 @@ const MessageItem = ({
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="underline text-blue-300 hover:text-blue-100 transition"
+            className="underline text-blue-300 hover:text-blue-100 transition break-all"
             title={part}
           >
-            {part}
+            {getLinkPreviewText(part)}
           </a>
         );
       }
@@ -295,10 +312,65 @@ const MessageItem = ({
   };
 
   const reactions = groupedReactions();
+  const hasFilePreview = Boolean(message.fileUrl && !message.isDeleted);
+  const hasTextContent = Boolean(message.text?.trim());
+  const bubbleBaseClass =
+    "relative w-fit max-w-[70%] px-4 py-2 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer box-border overflow-x-hidden [overflow-wrap:anywhere] break-words";
+
+  const bubbleCornerClass = isOwnMessage
+    ? "rounded-tr-none"
+    : "rounded-tl-none";
+
+  const bubbleToneClass = isOwnMessage
+    ? "bg-blue-500 dark:bg-blue-600 text-white"
+    : "bg-gray-200 dark:bg-gray-700 text-black dark:text-white";
+
+  const bubbleClassName = `${bubbleBaseClass} ${bubbleCornerClass} ${bubbleToneClass} ${message.isDeleted ? "italic opacity-60" : ""} ${!message.isDeleted && reactions.length > 0 ? "pb-7" : ""}`;
+
+  const replySource =
+    message.replyTo && typeof message.replyTo === "object"
+      ? message.replyTo
+      : repliedMessage;
+
+  const replySenderName =
+    replySource?.senderName ||
+    repliedMessage?.senderName ||
+    "Replying to message";
+
+  const replyMessageType =
+    replySource?.messageType ||
+    (replySource?.fileUrl
+      ? String(replySource?.fileType || "")
+          .toLowerCase()
+          .startsWith("image/")
+        ? "image"
+        : "file"
+      : "text");
+
+  const replyMessageText =
+    typeof replySource?.messageText === "string"
+      ? replySource.messageText.trim()
+      : typeof replySource?.text === "string"
+        ? replySource.text.trim()
+        : "";
+
+  const replyMediaLabel =
+    replyMessageType === "image"
+      ? "📷 Image"
+      : replyMessageType === "file"
+        ? "📎 File"
+        : null;
+
+  const openFileInNewTab = (fileUrl) => {
+    if (!fileUrl) return;
+
+    const resolvedUrl = `${FILE_BASE_URL}${fileUrl}`;
+    window.open(resolvedUrl, "_blank", "noopener,noreferrer");
+  };
 
   return (
     <div
-      className={`w-full flex gap-2 mb-3 group ${
+      className={`w-full flex gap-2 mb-2 group ${
         isOwnMessage ? "justify-end" : "justify-start"
       } max-w-full box-border`}
       onContextMenu={(e) => {
@@ -352,96 +424,93 @@ const MessageItem = ({
               });
             }
           }}
-          className={`${isMobilePreview ? "w-fit max-w-[68%]" : "max-w-xs lg:max-w-md"} px-4 py-2 rounded-2xl transition-all duration-200 cursor-pointer box-border overflow-x-hidden [overflow-wrap:anywhere] break-words ${
-            isOwnMessage
-              ? "bg-blue-500 text-white rounded-br-none"
-              : "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none"
-          } ${message.isDeleted ? "italic opacity-60" : ""}`}
+          className={`${bubbleClassName} ${isMobilePreview ? "w-fit max-w-[68%]" : ""}`}
         >
           {/* Forwarded Tag */}
-          {message.isForwarded && (
+          {!message.isDeleted && message.isForwarded && (
             <div className="mb-1.5">
               <span className="text-sm opacity-70 italic">⤷ Forwarded</span>
             </div>
           )}
 
           {/* Reply Preview */}
-          {message.replyTo && (
-            <div
-              className={`mb-2 px-2 py-1.5 rounded border-l-2 ${
-                isOwnMessage
-                  ? "bg-blue-400/40 border-blue-200"
-                  : "bg-gray-300/60 dark:bg-gray-600/60 border-blue-400"
-              }`}
-            >
-              <p className="text-[11px] font-semibold opacity-90">
-                {repliedMessage?.senderName || "Replying to message"}
+          {!message.isDeleted && message.replyTo && (
+            <div className="mb-2 rounded-md border-l-4 border-blue-500 bg-gray-100 dark:bg-gray-800 p-2">
+              <p className="text-xs font-semibold text-blue-500 dark:text-blue-400 leading-tight">
+                {replySenderName}
               </p>
-              <p className="text-xs opacity-85 line-clamp-2">
-                {repliedMessage?.text || "Original message unavailable"}
-              </p>
+              {replyMediaLabel && (
+                <p className="text-xs font-semibold text-blue-500 dark:text-blue-400 leading-tight mt-0.5">
+                  {replyMediaLabel}
+                </p>
+              )}
+              {replyMessageText && (
+                <p className="text-xs opacity-80 text-gray-700 dark:text-gray-300 leading-snug mt-0.5 line-clamp-2">
+                  {replyMessageText}
+                </p>
+              )}
+              {!replyMediaLabel && !replyMessageText && (
+                <p className="text-xs opacity-80 text-gray-700 dark:text-gray-300 leading-snug mt-0.5">
+                  Message
+                </p>
+              )}
             </div>
           )}
 
           {/* Mention Badge */}
-          {message.mentions && message.mentions.length > 0 && (
-            <div className="text-xs mb-1 opacity-80 flex flex-wrap gap-1">
-              {message.mentions.map((mention) => (
-                <span
-                  key={mention.userId}
-                  className={`px-2 py-0.5 rounded-full ${
-                    isOwnMessage
-                      ? "bg-blue-400 text-blue-100"
-                      : "bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200"
-                  }`}
-                >
-                  @{mention.userName}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Message Text and Link Icon */}
-          <div className="flex items-end gap-2">
-            <p
-              className={`text-sm leading-relaxed break-words flex-1 ${
-                message.isEdited ? "text-xs opacity-90" : ""
-              } [overflow-wrap:anywhere]`}
-            >
-              {renderTextWithLinks()}
-            </p>
-            {messageLinks.length > 0 && (
-              <FaLink
-                className={`flex-shrink-0 ${isOwnMessage ? "text-blue-200" : "text-gray-500 dark:text-gray-400"}`}
-                size={12}
-              />
+          {!message.isDeleted &&
+            message.mentions &&
+            message.mentions.length > 0 && (
+              <div className="text-xs mb-1 opacity-80 flex flex-wrap gap-1">
+                {message.mentions.map((mention) => (
+                  <span
+                    key={mention.userId}
+                    className={`px-2 py-0.5 rounded-full ${
+                      isOwnMessage
+                        ? "bg-blue-400 text-blue-100"
+                        : "bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200"
+                    }`}
+                  >
+                    @{mention.userName}
+                  </span>
+                ))}
+              </div>
             )}
-          </div>
 
           {/* File Preview */}
-          {message.fileUrl && !message.isDeleted && (
+          {hasFilePreview && (
             <div className="mt-2">
               {(() => {
-                const isImageFile = message.fileType?.startsWith("image/");
+                const isImageFile =
+                  message.fileType?.toLowerCase().startsWith("image/") ||
+                  /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(
+                    message.fileName || "",
+                  );
                 const isAudioFile =
                   message.fileType?.toLowerCase().startsWith("audio/") ||
                   /\.(mp3|wav|ogg|m4a|webm|aac)$/i.test(message.fileName || "");
 
                 if (isImageFile) {
                   return (
-                    <a
-                      href={`${FILE_BASE_URL}${message.fileUrl}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      title="Open full image"
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openFileInNewTab(message.fileUrl)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          openFileInNewTab(message.fileUrl);
+                        }
+                      }}
+                      className="rounded-lg overflow-hidden max-w-xs cursor-pointer hover:scale-105 transition"
+                      title="Open image in new tab"
                     >
                       <img
                         src={`${FILE_BASE_URL}${message.fileUrl}`}
-                        alt={message.fileName}
-                        className="max-w-full rounded-lg max-h-48 cursor-pointer"
+                        alt={message.fileName || "image"}
+                        className="w-full object-cover"
                       />
-                    </a>
+                    </div>
                   );
                 }
 
@@ -485,106 +554,169 @@ const MessageItem = ({
                 // Modern file display with icon and extension
                 const fileInfo = getFileInfo(message.fileName);
                 const FileIcon = fileInfo.icon;
+                const showCompressedPackageIcon = isCompressedArchive(
+                  message.fileName,
+                  message.fileType,
+                );
 
                 return (
-                  <a
-                    href={`${FILE_BASE_URL}${message.fileUrl}`}
-                    download={message.fileName}
-                    onClick={(e) => e.stopPropagation()}
-                    className={`flex items-center gap-3 p-3 rounded-lg max-w-xs transition-all hover:opacity-80 ${
-                      isOwnMessage
-                        ? "bg-blue-600/20 border border-blue-400/30"
-                        : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600"
-                    }`}
-                    title="Click to View"
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openFileInNewTab(message.fileUrl)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        openFileInNewTab(message.fileUrl);
+                      }
+                    }}
+                    className="flex justify-between items-center bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg gap-3 cursor-pointer"
+                    title="Open file in new tab"
                   >
-                    {/* File Icon */}
-                    <div
-                      className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${fileInfo.bgColor}`}
-                    >
-                      <FileIcon className={`text-2xl ${fileInfo.color}`} />
-                    </div>
-
-                    {/* File Details */}
-                    <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {/* File Icon */}
                       <div
-                        className={`font-medium text-sm truncate ${
-                          isOwnMessage
-                            ? "text-white"
-                            : "text-gray-900 dark:text-gray-100"
-                        }`}
+                        className={`flex-shrink-0 w-10 h-10 rounded-md flex items-center justify-center ${fileInfo.bgColor}`}
                       >
-                        {message.fileName}
+                        {showCompressedPackageIcon ? (
+                          <span
+                            className="text-xl leading-none"
+                            aria-hidden="true"
+                          >
+                            📦
+                          </span>
+                        ) : (
+                          <FileIcon className={`text-xl ${fileInfo.color}`} />
+                        )}
                       </div>
-                      <div
-                        className={`text-xs mt-0.5 ${
-                          isOwnMessage
-                            ? "text-blue-100"
-                            : "text-gray-500 dark:text-gray-400"
-                        }`}
-                      >
-                        {message.fileName?.split(".").pop()?.toUpperCase()} File
+
+                      {/* File Details */}
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className={`truncate text-sm font-medium ${
+                            isOwnMessage
+                              ? "text-white"
+                              : "text-gray-900 dark:text-gray-100"
+                          }`}
+                        >
+                          {message.fileName}
+                        </div>
                       </div>
                     </div>
-
-                    {/* Download Icon - show only for received messages */}
-                    {!isOwnMessage && (
-                      <div className="flex-shrink-0">
-                        <FaDownload className="text-sm text-gray-400 dark:text-gray-500" />
-                      </div>
-                    )}
-                  </a>
+                  </div>
                 );
               })()}
             </div>
           )}
 
+          {/* Message Text + Time Row */}
+          {!hasFilePreview && (
+            <div className="flex justify-between items-end gap-4">
+              <div className="flex items-end gap-3 min-w-0 flex-1">
+                <p
+                  className={`text-base font-medium leading-relaxed break-words text-left flex-1 ${
+                    message.isEdited ? "text-sm" : ""
+                  } ${
+                    isOwnMessage
+                      ? "text-white"
+                      : "text-gray-900 dark:text-gray-100"
+                  } [overflow-wrap:anywhere]`}
+                >
+                  {renderTextWithLinks()}
+                </p>
+                {messageLinks.length > 0 && (
+                  <FaLink
+                    className={`flex-shrink-0 ${isOwnMessage ? "text-blue-200" : "text-gray-500 dark:text-gray-400"}`}
+                    size={12}
+                  />
+                )}
+              </div>
+              <span
+                className={`text-xs opacity-60 whitespace-nowrap text-right self-end ${
+                  isOwnMessage
+                    ? "text-white/80 dark:text-blue-100/80"
+                    : "text-gray-600 dark:text-gray-300"
+                }`}
+              >
+                {formatDate(message.createdAt)}
+              </span>
+            </div>
+          )}
+
+          {hasFilePreview && hasTextContent && (
+            <div className="mt-2 flex items-end gap-3 min-w-0">
+              <p
+                className={`text-base font-medium leading-relaxed break-words text-left flex-1 ${
+                  message.isEdited ? "text-sm" : ""
+                } ${
+                  isOwnMessage
+                    ? "text-white"
+                    : "text-gray-900 dark:text-gray-100"
+                } [overflow-wrap:anywhere]`}
+              >
+                {renderTextWithLinks()}
+              </p>
+              {messageLinks.length > 0 && (
+                <FaLink
+                  className={`flex-shrink-0 ${isOwnMessage ? "text-blue-200" : "text-gray-500 dark:text-gray-400"}`}
+                  size={12}
+                />
+              )}
+            </div>
+          )}
+
           {/* Edit Info */}
-          {message.isEdited && (
+          {!message.isDeleted && message.isEdited && (
             <p className="text-xs mt-1 opacity-75 italic">(edited)</p>
           )}
 
-          {/* Timestamp */}
-          <p className="text-xs mt-1 opacity-75">
-            {formatDate(message.createdAt)}
-          </p>
-        </div>
-
-        {/* Reactions Display */}
-        {reactions.length > 0 && (
-          <div
-            className={`absolute -bottom-2 flex gap-1 ${
-              isOwnMessage ? "right-2" : "left-2"
-            }`}
-          >
-            {reactions.map((reaction, index) => (
-              <div
-                key={index}
-                onClick={(e) => {
-                  // Only allow clicking if current user reacted
-                  if (reaction.hasCurrentUser && onReactionClick) {
-                    e.stopPropagation();
-                    onReactionClick({
-                      reaction,
-                      message,
-                    });
-                  }
-                }}
-                className={`flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs shadow-md border transition-all duration-200 ${
-                  reaction.hasCurrentUser
-                    ? "bg-blue-100 dark:bg-blue-900 border-blue-400 dark:border-blue-500 cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800"
-                    : "bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+          {/* Bottom timestamp for uploaded-file bubbles */}
+          {hasFilePreview && (
+            <div className="mt-2 flex justify-end">
+              <span
+                className={`text-xs opacity-60 whitespace-nowrap text-right ${
+                  isOwnMessage
+                    ? "text-white/80 dark:text-blue-100/80"
+                    : "text-gray-600 dark:text-gray-300"
                 }`}
-                title={reaction.users.join(", ")}
               >
-                <span className="text-sm">{reaction.emoji}</span>
-                <span className="text-xs font-medium text-gray-700 dark:text-gray-200">
-                  {reaction.count}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+                {formatDate(message.createdAt)}
+              </span>
+            </div>
+          )}
+
+          {/* Reactions Display (inside bubble, bottom-right) */}
+          {!message.isDeleted && reactions.length > 0 && (
+            <div className="absolute bottom-1 right-2 flex gap-1">
+              {reactions.map((reaction, index) => (
+                <div
+                  key={index}
+                  onClick={(e) => {
+                    // Only allow clicking if current user reacted
+                    if (reaction.hasCurrentUser && onReactionClick) {
+                      e.stopPropagation();
+                      onReactionClick({
+                        reaction,
+                        message,
+                      });
+                    }
+                  }}
+                  className={`flex items-center gap-0.5 px-1 py-0.5 rounded-full text-xs shadow border transition-all duration-200 ${
+                    reaction.hasCurrentUser
+                      ? "bg-white/95 dark:bg-gray-800/95 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                      : "bg-white/95 dark:bg-gray-800/95"
+                  }`}
+                  title={reaction.users.join(", ")}
+                >
+                  <span className="text-sm leading-none">{reaction.emoji}</span>
+                  <span className="text-[10px] font-medium text-gray-700 dark:text-gray-200 leading-none">
+                    {reaction.count}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Message Actions (shown on hover) */}
