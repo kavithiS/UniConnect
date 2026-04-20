@@ -88,6 +88,46 @@ const mergeMessages = (baseMessages, incomingMessages) => {
   );
 };
 
+const MAX_UPLOAD_SIZE_MB = 10;
+const MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
+const ALLOWED_UPLOAD_MIME_TYPES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/zip",
+  "application/x-rar-compressed",
+  "application/x-7z-compressed",
+  "image/jpeg",
+  "image/png",
+]);
+const ALLOWED_UPLOAD_EXTENSIONS = new Set([
+  ".zip",
+  ".rar",
+  ".7z",
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".jpg",
+  ".jpeg",
+  ".png",
+]);
+
+const getFileExtension = (fileName = "") => {
+  const dotIndex = fileName.lastIndexOf(".");
+  if (dotIndex < 0) return "";
+  return fileName.slice(dotIndex).toLowerCase();
+};
+
+const isAllowedUploadFile = (file) => {
+  const normalizedMimeType = (file?.type || "").toLowerCase();
+  const extension = getFileExtension(file?.name || "");
+  const isImageMime = normalizedMimeType.startsWith("image/");
+  const isAllowedByMime =
+    ALLOWED_UPLOAD_MIME_TYPES.has(normalizedMimeType) || isImageMime;
+  const isAllowedByExtension = ALLOWED_UPLOAD_EXTENSIONS.has(extension);
+  return isAllowedByMime || isAllowedByExtension;
+};
+
 const GroupChat = () => {
   const { isDarkMode } = useTheme();
   const location = useLocation();
@@ -652,11 +692,20 @@ const GroupChat = () => {
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Check file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        alert("File size must be less than 10MB");
+      if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+        alert(`File size must be less than ${MAX_UPLOAD_SIZE_MB}MB`);
+        e.target.value = "";
         return;
       }
+
+      if (!isAllowedUploadFile(file)) {
+        alert(
+          "Unsupported file type. Allowed: .zip, .rar, .7z, .pdf, .doc, .docx, .jpg, .png",
+        );
+        e.target.value = "";
+        return;
+      }
+
       setRecordedAudioFile(null);
       setSelectedFile(file);
     }
@@ -723,7 +772,9 @@ const GroupChat = () => {
       setIsSending(false);
     } catch (err) {
       console.error("Error uploading file:", err);
-      alert("Failed to upload file");
+      const backendMessage =
+        err?.response?.data?.message || err?.message || "Failed to upload file";
+      alert(backendMessage);
       setIsSending(false);
     }
   };
@@ -1754,9 +1805,22 @@ const GroupChat = () => {
   /**
    * Get file icon based on file type
    */
-  const getFileIcon = (fileType) => {
-    if (!fileType) return "📄";
-    if (fileType.startsWith("image/")) return "🖼️";
+  const getFileIcon = (file) => {
+    const fileType = String(file?.type || "").toLowerCase();
+    const fileExt = getFileExtension(file?.name || "");
+    if (!fileType && !fileExt) return "📄";
+    if (
+      fileType.startsWith("image/") ||
+      [".jpg", ".jpeg", ".png"].includes(fileExt)
+    )
+      return "🖼️";
+    if (
+      fileType === "application/zip" ||
+      fileType === "application/x-rar-compressed" ||
+      fileType === "application/x-7z-compressed" ||
+      [".zip", ".rar", ".7z"].includes(fileExt)
+    )
+      return "📦";
     if (fileType === "application/pdf") return "📕";
     if (fileType.includes("word")) return "📘";
     if (fileType.includes("excel")) return "📗";
@@ -2260,9 +2324,7 @@ const GroupChat = () => {
           {selectedFile && (
             <div className="mb-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-400/30 rounded-lg p-3 flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <span className="text-2xl">
-                  {getFileIcon(selectedFile.type)}
-                </span>
+                <span className="text-2xl">{getFileIcon(selectedFile)}</span>
                 <div>
                   <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
                     {selectedFile.name}
@@ -2300,7 +2362,7 @@ const GroupChat = () => {
               ref={fileInputRef}
               onChange={handleFileSelect}
               className="hidden"
-              accept="image/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+              accept=".zip,.rar,.7z,.pdf,.doc,.docx,.jpg,.png"
             />
 
             {/* Message Input */}

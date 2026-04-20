@@ -12,7 +12,6 @@ import {
   FaFileCode,
   FaFileAlt,
   FaFile,
-  FaDownload,
 } from "react-icons/fa";
 import { getBackendBaseUrl } from "../../utils/backendUrl";
 
@@ -41,11 +40,29 @@ const MessageItem = ({
   };
 
   const messageLinks = detectLinks(message.text);
+  const URL_PREVIEW_LENGTH = 30;
+
+  const isCompressedArchive = (fileName = "", fileType = "") => {
+    const normalizedType = String(fileType || "").toLowerCase();
+    const normalizedName = String(fileName || "").toLowerCase();
+    return (
+      normalizedType === "application/zip" ||
+      normalizedType === "application/x-rar-compressed" ||
+      normalizedType === "application/x-7z-compressed" ||
+      /\.(zip|rar|7z)$/i.test(normalizedName)
+    );
+  };
 
   // Render text with clickable links
   const renderTextWithLinks = () => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const parts = message.text.split(urlRegex);
+    const getLinkPreviewText = (url) => {
+      if (!url) return "";
+      return url.length > URL_PREVIEW_LENGTH
+        ? `${url.slice(0, URL_PREVIEW_LENGTH)}...`
+        : url;
+    };
 
     return parts.map((part, index) => {
       if (urlRegex.test(part)) {
@@ -56,10 +73,10 @@ const MessageItem = ({
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="underline text-blue-300 hover:text-blue-100 transition"
+            className="underline text-blue-300 hover:text-blue-100 transition break-all"
             title={part}
           >
-            {part}
+            {getLinkPreviewText(part)}
           </a>
         );
       }
@@ -295,6 +312,8 @@ const MessageItem = ({
   };
 
   const reactions = groupedReactions();
+  const hasFilePreview = Boolean(message.fileUrl && !message.isDeleted);
+  const hasTextContent = Boolean(message.text?.trim());
   const bubbleBaseClass =
     "relative w-fit max-w-[70%] px-4 py-2 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer box-border overflow-x-hidden [overflow-wrap:anywhere] break-words";
 
@@ -347,19 +366,6 @@ const MessageItem = ({
 
     const resolvedUrl = `${FILE_BASE_URL}${fileUrl}`;
     window.open(resolvedUrl, "_blank", "noopener,noreferrer");
-  };
-
-  const downloadFile = (e, fileUrl, fileName) => {
-    e.stopPropagation();
-    if (!fileUrl) return;
-
-    const resolvedUrl = `${FILE_BASE_URL}${fileUrl}`;
-    const link = document.createElement("a");
-    link.href = resolvedUrl;
-    link.download = fileName || "download";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   return (
@@ -471,45 +477,42 @@ const MessageItem = ({
               </div>
             )}
 
-          {/* Message Text + Time Row */}
-          <div className="flex justify-between items-end gap-4">
-            <div className="flex items-end gap-3 min-w-0 flex-1">
-              <p
-                className={`text-base font-medium leading-relaxed break-words text-left flex-1 ${
-                  message.isEdited ? "text-sm" : ""
-                } ${
-                  isOwnMessage
-                    ? "text-white"
-                    : "text-gray-900 dark:text-gray-100"
-                } [overflow-wrap:anywhere]`}
-              >
-                {renderTextWithLinks()}
-              </p>
-              {messageLinks.length > 0 && (
-                <FaLink
-                  className={`flex-shrink-0 ${isOwnMessage ? "text-blue-200" : "text-gray-500 dark:text-gray-400"}`}
-                  size={12}
-                />
-              )}
-            </div>
-            <span
-              className={`text-xs opacity-60 whitespace-nowrap text-right self-end ${
-                isOwnMessage
-                  ? "text-white/80 dark:text-blue-100/80"
-                  : "text-gray-600 dark:text-gray-300"
-              }`}
-            >
-              {formatDate(message.createdAt)}
-            </span>
-          </div>
-
           {/* File Preview */}
-          {message.fileUrl && !message.isDeleted && (
+          {hasFilePreview && (
             <div className="mt-2">
               {(() => {
+                const isImageFile =
+                  message.fileType?.toLowerCase().startsWith("image/") ||
+                  /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(
+                    message.fileName || "",
+                  );
                 const isAudioFile =
                   message.fileType?.toLowerCase().startsWith("audio/") ||
                   /\.(mp3|wav|ogg|m4a|webm|aac)$/i.test(message.fileName || "");
+
+                if (isImageFile) {
+                  return (
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openFileInNewTab(message.fileUrl)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          openFileInNewTab(message.fileUrl);
+                        }
+                      }}
+                      className="rounded-lg overflow-hidden max-w-xs cursor-pointer hover:scale-105 transition"
+                      title="Open image in new tab"
+                    >
+                      <img
+                        src={`${FILE_BASE_URL}${message.fileUrl}`}
+                        alt={message.fileName || "image"}
+                        className="w-full object-cover"
+                      />
+                    </div>
+                  );
+                }
 
                 if (isAudioFile) {
                   return (
@@ -551,8 +554,10 @@ const MessageItem = ({
                 // Modern file display with icon and extension
                 const fileInfo = getFileInfo(message.fileName);
                 const FileIcon = fileInfo.icon;
-                const fileLabel =
-                  message.fileName?.split(".").pop()?.toUpperCase() || "FILE";
+                const showCompressedPackageIcon = isCompressedArchive(
+                  message.fileName,
+                  message.fileType,
+                );
 
                 return (
                   <div
@@ -565,7 +570,7 @@ const MessageItem = ({
                         openFileInNewTab(message.fileUrl);
                       }
                     }}
-                    className="flex justify-between items-center bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2 gap-3 cursor-pointer hover:shadow-sm transition-all duration-200"
+                    className="flex justify-between items-center bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg gap-3 cursor-pointer"
                     title="Open file in new tab"
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -573,7 +578,16 @@ const MessageItem = ({
                       <div
                         className={`flex-shrink-0 w-10 h-10 rounded-md flex items-center justify-center ${fileInfo.bgColor}`}
                       >
-                        <FileIcon className={`text-xl ${fileInfo.color}`} />
+                        {showCompressedPackageIcon ? (
+                          <span
+                            className="text-xl leading-none"
+                            aria-hidden="true"
+                          >
+                            📦
+                          </span>
+                        ) : (
+                          <FileIcon className={`text-xl ${fileInfo.color}`} />
+                        )}
                       </div>
 
                       {/* File Details */}
@@ -587,37 +601,88 @@ const MessageItem = ({
                         >
                           {message.fileName}
                         </div>
-                        <div
-                          className={`text-xs mt-0.5 ${
-                            isOwnMessage
-                              ? "text-blue-100"
-                              : "text-gray-500 dark:text-gray-400"
-                          }`}
-                        >
-                          {fileLabel} File
-                        </div>
                       </div>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={(e) =>
-                        downloadFile(e, message.fileUrl, message.fileName)
-                      }
-                      className="flex-shrink-0 text-gray-500 dark:text-gray-400 hover:text-blue-500 cursor-pointer transition-colors duration-200"
-                      title="Download file"
-                    >
-                      <FaDownload className="text-sm" />
-                    </button>
                   </div>
                 );
               })()}
             </div>
           )}
 
+          {/* Message Text + Time Row */}
+          {!hasFilePreview && (
+            <div className="flex justify-between items-end gap-4">
+              <div className="flex items-end gap-3 min-w-0 flex-1">
+                <p
+                  className={`text-base font-medium leading-relaxed break-words text-left flex-1 ${
+                    message.isEdited ? "text-sm" : ""
+                  } ${
+                    isOwnMessage
+                      ? "text-white"
+                      : "text-gray-900 dark:text-gray-100"
+                  } [overflow-wrap:anywhere]`}
+                >
+                  {renderTextWithLinks()}
+                </p>
+                {messageLinks.length > 0 && (
+                  <FaLink
+                    className={`flex-shrink-0 ${isOwnMessage ? "text-blue-200" : "text-gray-500 dark:text-gray-400"}`}
+                    size={12}
+                  />
+                )}
+              </div>
+              <span
+                className={`text-xs opacity-60 whitespace-nowrap text-right self-end ${
+                  isOwnMessage
+                    ? "text-white/80 dark:text-blue-100/80"
+                    : "text-gray-600 dark:text-gray-300"
+                }`}
+              >
+                {formatDate(message.createdAt)}
+              </span>
+            </div>
+          )}
+
+          {hasFilePreview && hasTextContent && (
+            <div className="mt-2 flex items-end gap-3 min-w-0">
+              <p
+                className={`text-base font-medium leading-relaxed break-words text-left flex-1 ${
+                  message.isEdited ? "text-sm" : ""
+                } ${
+                  isOwnMessage
+                    ? "text-white"
+                    : "text-gray-900 dark:text-gray-100"
+                } [overflow-wrap:anywhere]`}
+              >
+                {renderTextWithLinks()}
+              </p>
+              {messageLinks.length > 0 && (
+                <FaLink
+                  className={`flex-shrink-0 ${isOwnMessage ? "text-blue-200" : "text-gray-500 dark:text-gray-400"}`}
+                  size={12}
+                />
+              )}
+            </div>
+          )}
+
           {/* Edit Info */}
           {!message.isDeleted && message.isEdited && (
             <p className="text-xs mt-1 opacity-75 italic">(edited)</p>
+          )}
+
+          {/* Bottom timestamp for uploaded-file bubbles */}
+          {hasFilePreview && (
+            <div className="mt-2 flex justify-end">
+              <span
+                className={`text-xs opacity-60 whitespace-nowrap text-right ${
+                  isOwnMessage
+                    ? "text-white/80 dark:text-blue-100/80"
+                    : "text-gray-600 dark:text-gray-300"
+                }`}
+              >
+                {formatDate(message.createdAt)}
+              </span>
+            </div>
           )}
 
           {/* Reactions Display (inside bubble, bottom-right) */}
