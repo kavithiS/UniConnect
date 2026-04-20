@@ -296,13 +296,17 @@ const MessageItem = ({
 
   const reactions = groupedReactions();
   const bubbleBaseClass =
-    "relative w-fit max-w-[70%] px-4 py-2 rounded-2xl rounded-tl-none shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer box-border overflow-x-hidden [overflow-wrap:anywhere] break-words";
+    "relative w-fit max-w-[70%] px-4 py-2 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer box-border overflow-x-hidden [overflow-wrap:anywhere] break-words";
+
+  const bubbleCornerClass = isOwnMessage
+    ? "rounded-tr-none"
+    : "rounded-tl-none";
 
   const bubbleToneClass = isOwnMessage
     ? "bg-blue-500 dark:bg-blue-600 text-white"
     : "bg-gray-200 dark:bg-gray-700 text-black dark:text-white";
 
-  const bubbleClassName = `${bubbleBaseClass} ${bubbleToneClass} ${message.isDeleted ? "italic opacity-60" : ""} ${!message.isDeleted && reactions.length > 0 ? "pb-7" : ""}`;
+  const bubbleClassName = `${bubbleBaseClass} ${bubbleCornerClass} ${bubbleToneClass} ${message.isDeleted ? "italic opacity-60" : ""} ${!message.isDeleted && reactions.length > 0 ? "pb-7" : ""}`;
 
   return (
     <div
@@ -375,13 +379,25 @@ const MessageItem = ({
               className={`mb-2 px-3 py-2 rounded-xl border-l-4 ${
                 isOwnMessage
                   ? "bg-blue-400/15 border-blue-300/70 dark:bg-blue-950/25 dark:border-blue-300/60"
-                  : "bg-gray-100/80 border-blue-400/70 dark:bg-gray-800 dark:border-blue-400/60"
+                  : "bg-gray-100/90 border-blue-500/70 dark:bg-gray-800/95 dark:border-blue-400/70"
               }`}
             >
-              <p className="text-[11px] font-semibold opacity-90 leading-tight">
+              <p
+                className={`text-[11px] font-semibold leading-tight ${
+                  isOwnMessage
+                    ? "text-blue-100 dark:text-blue-200"
+                    : "text-blue-600 dark:text-blue-400"
+                }`}
+              >
                 {repliedMessage?.senderName || "Replying to message"}
               </p>
-              <p className="text-[11px] opacity-80 line-clamp-2 leading-snug">
+              <p
+                className={`text-[11px] line-clamp-2 leading-snug ${
+                  isOwnMessage
+                    ? "text-white/70 dark:text-blue-100/80"
+                    : "text-gray-600 dark:text-gray-300"
+                }`}
+              >
                 {repliedMessage?.text || "Original message unavailable"}
               </p>
             </div>
@@ -407,21 +423,36 @@ const MessageItem = ({
               </div>
             )}
 
-          {/* Message Text and Link Icon */}
-          <div className="flex items-end gap-2">
-            <p
-              className={`text-sm leading-relaxed break-words flex-1 ${
-                message.isEdited ? "text-xs opacity-90" : ""
-              } [overflow-wrap:anywhere]`}
+          {/* Message Text + Time Row */}
+          <div className="flex justify-between items-end gap-4">
+            <div className="flex items-end gap-3 min-w-0 flex-1">
+              <p
+                className={`text-base font-medium leading-relaxed break-words text-left flex-1 ${
+                  message.isEdited ? "text-sm" : ""
+                } ${
+                  isOwnMessage
+                    ? "text-white"
+                    : "text-gray-900 dark:text-gray-100"
+                } [overflow-wrap:anywhere]`}
+              >
+                {renderTextWithLinks()}
+              </p>
+              {messageLinks.length > 0 && (
+                <FaLink
+                  className={`flex-shrink-0 ${isOwnMessage ? "text-blue-200" : "text-gray-500 dark:text-gray-400"}`}
+                  size={12}
+                />
+              )}
+            </div>
+            <span
+              className={`text-xs opacity-60 whitespace-nowrap text-right self-end ${
+                isOwnMessage
+                  ? "text-white/80 dark:text-blue-100/80"
+                  : "text-gray-600 dark:text-gray-300"
+              }`}
             >
-              {renderTextWithLinks()}
-            </p>
-            {messageLinks.length > 0 && (
-              <FaLink
-                className={`flex-shrink-0 ${isOwnMessage ? "text-blue-200" : "text-gray-500 dark:text-gray-400"}`}
-                size={12}
-              />
-            )}
+              {formatDate(message.createdAt)}
+            </span>
           </div>
 
           {/* File Preview */}
@@ -549,11 +580,6 @@ const MessageItem = ({
           {!message.isDeleted && message.isEdited && (
             <p className="text-xs mt-1 opacity-75 italic">(edited)</p>
           )}
-
-          {/* Timestamp */}
-          <p className="text-xs mt-1 opacity-75">
-            {formatDate(message.createdAt)}
-          </p>
 
           {/* Reactions Display (inside bubble, bottom-right) */}
           {!message.isDeleted && reactions.length > 0 && (
