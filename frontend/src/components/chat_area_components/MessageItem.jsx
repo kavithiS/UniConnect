@@ -352,11 +352,11 @@ const MessageItem = ({
               });
             }
           }}
-          className={`${isMobilePreview ? "w-fit max-w-[68%]" : "max-w-xs lg:max-w-md"} px-4 py-2 rounded-2xl transition-all duration-200 cursor-pointer box-border overflow-x-hidden [overflow-wrap:anywhere] break-words ${
+          className={`${isMobilePreview ? "w-fit max-w-[68%]" : "max-w-xs lg:max-w-md"} relative px-4 py-2 rounded-2xl transition-all duration-200 cursor-pointer box-border overflow-x-hidden [overflow-wrap:anywhere] break-words ${
             isOwnMessage
               ? "bg-blue-500 text-white rounded-br-none"
               : "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none"
-          } ${message.isDeleted ? "italic opacity-60" : ""}`}
+          } ${message.isDeleted ? "italic opacity-60" : ""} ${reactions.length > 0 ? "pb-7" : ""}`}
         >
           {/* Forwarded Tag */}
           {message.isForwarded && (
@@ -548,43 +548,39 @@ const MessageItem = ({
           <p className="text-xs mt-1 opacity-75">
             {formatDate(message.createdAt)}
           </p>
-        </div>
 
-        {/* Reactions Display */}
-        {reactions.length > 0 && (
-          <div
-            className={`absolute -bottom-2 flex gap-1 ${
-              isOwnMessage ? "right-2" : "left-2"
-            }`}
-          >
-            {reactions.map((reaction, index) => (
-              <div
-                key={index}
-                onClick={(e) => {
-                  // Only allow clicking if current user reacted
-                  if (reaction.hasCurrentUser && onReactionClick) {
-                    e.stopPropagation();
-                    onReactionClick({
-                      reaction,
-                      message,
-                    });
-                  }
-                }}
-                className={`flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs shadow-md border transition-all duration-200 ${
-                  reaction.hasCurrentUser
-                    ? "bg-blue-100 dark:bg-blue-900 border-blue-400 dark:border-blue-500 cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800"
-                    : "bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
-                }`}
-                title={reaction.users.join(", ")}
-              >
-                <span className="text-sm">{reaction.emoji}</span>
-                <span className="text-xs font-medium text-gray-700 dark:text-gray-200">
-                  {reaction.count}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+          {/* Reactions Display (inside bubble, bottom-right) */}
+          {reactions.length > 0 && (
+            <div className="absolute bottom-1 right-2 flex gap-1">
+              {reactions.map((reaction, index) => (
+                <div
+                  key={index}
+                  onClick={(e) => {
+                    // Only allow clicking if current user reacted
+                    if (reaction.hasCurrentUser && onReactionClick) {
+                      e.stopPropagation();
+                      onReactionClick({
+                        reaction,
+                        message,
+                      });
+                    }
+                  }}
+                  className={`flex items-center gap-0.5 px-1 py-0.5 rounded-full text-xs shadow border transition-all duration-200 ${
+                    reaction.hasCurrentUser
+                      ? "bg-white dark:bg-gray-800 border-blue-400 dark:border-blue-500 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                      : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+                  }`}
+                  title={reaction.users.join(", ")}
+                >
+                  <span className="text-sm leading-none">{reaction.emoji}</span>
+                  <span className="text-[10px] font-medium text-gray-700 dark:text-gray-200 leading-none">
+                    {reaction.count}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Message Actions (shown on hover) */}

@@ -661,15 +661,6 @@ const GroupChat = () => {
       const response = await uploadFile(uploadData);
       const fileMessage = response.data;
 
-      // Optimistic UI update - add file message immediately
-      const optimisticFileMessage = {
-        ...fileMessage,
-        _id: fileMessage._id || `temp-${Date.now()}`,
-        createdAt: fileMessage.createdAt || new Date().toISOString(),
-      };
-
-      setMessages((prevMessages) => [...prevMessages, optimisticFileMessage]);
-
       // Broadcast file message to all group members via socket
       socket.emit("send_file", {
         groupId,
@@ -874,14 +865,6 @@ const GroupChat = () => {
 
       const response = await uploadFile(uploadData);
       const voiceMessage = response.data;
-
-      const optimisticVoiceMessage = {
-        ...voiceMessage,
-        _id: voiceMessage._id || `temp-${Date.now()}`,
-        createdAt: voiceMessage.createdAt || new Date().toISOString(),
-      };
-
-      setMessages((prevMessages) => [...prevMessages, optimisticVoiceMessage]);
 
       socket.emit("send_file", {
         groupId,
@@ -1398,13 +1381,6 @@ const GroupChat = () => {
       replyTo: replyingTo?._id || null,
       mentions: mentions.length > 0 ? mentions : [],
     };
-
-    const optimisticMessage = {
-      ...messageData,
-      _id: `temp-${Date.now()}`,
-    };
-
-    setMessages((prevMessages) => [...prevMessages, optimisticMessage]);
 
     socket.emit("send_message", messageData);
 
