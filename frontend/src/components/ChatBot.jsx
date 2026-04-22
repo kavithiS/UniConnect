@@ -128,15 +128,15 @@ const ChatBot = () => {
 
     // Then navigate based on the action
     const navigationMap = {
-      view_groups: '/groups',
-      view_recommendations: '/recommendations',
-      view_requests: '/requests',
-      view_tasks: '/taskboard',
-      view_projects: '/dashboard/projects',
-      create_group: '/create-group',
-      create_task: '/taskboard',
-      create_project: '/add-project',
-      send_request: '/requests'
+      view_groups: '/dashboard/groups',
+      view_recommendations: '/dashboard/recommendations',
+      view_requests: '/dashboard/requests',
+      view_tasks: '/dashboard/tasks',
+      view_projects: '/dashboard/project-dashboard',
+      create_group: '/dashboard/create-group',
+      create_task: '/dashboard/tasks',
+      create_project: '/dashboard/add-project',
+      send_request: '/dashboard/requests'
     };
 
     const navPath = navigationMap[action];
@@ -144,8 +144,9 @@ const ChatBot = () => {
       // Small delay to show response first
       setTimeout(() => {
         navigate(navPath);
-        // Minimize chat so user can see the page
+        // Minimize and close chat so user can focus on the destination page
         setIsMinimized(true);
+        setIsOpen(false);
       }, 800);
     }
   };
@@ -153,7 +154,10 @@ const ChatBot = () => {
   if (!isOpen) {
     return (
       <button
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          setIsMinimized(false);
+          setIsOpen(true);
+        }}
         className={`fixed bottom-6 right-6 w-16 h-16 rounded-full bg-gradient-to-br from-primary to-accent shadow-lg hover:shadow-2xl transition-all duration-300 flex items-center justify-center cursor-pointer hover:scale-110 z-50 group`}
         title="Open UniConnect Assistant"
       >

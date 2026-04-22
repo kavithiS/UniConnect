@@ -120,7 +120,7 @@ const ProjectDashboard = ({ projectId }) => {
           : 'bg-gradient-to-br from-slate-50 to-slate-100'
       }`}>
         <div className="px-8 py-16">
-          <div className={`rounded-xl border p-6 ${isDarkMode ? 'border-slate-700/50 bg-slate-800/30 text-slate-300' : 'border-slate-200 bg-white/70 text-slate-700'}`}>
+          <div className={`relative rounded-2xl overflow-hidden border backdrop-blur-sm ${isDarkMode ? 'border-slate-800/90 bg-slate-900/35' : 'border-slate-200 bg-white/70'}`}>
             No project selected yet. Create or select a project first.
           </div>
         </div>
@@ -166,7 +166,7 @@ const ProjectDashboard = ({ projectId }) => {
           : 'bg-gradient-to-br from-slate-50 to-slate-100'
       }`}>
         <div className="px-8 py-16">
-          <div className={`rounded-xl border p-6 ${isDarkMode ? 'border-slate-700/50 bg-slate-800/30 text-slate-300' : 'border-slate-200 bg-white/70 text-slate-700'}`}>
+          <div className={`relative rounded-2xl overflow-hidden border backdrop-blur-sm ${isDarkMode ? 'border-slate-800/90 bg-slate-900/35' : 'border-slate-200 bg-white/70'}`}>
             Loading dashboard...
           </div>
         </div>
@@ -188,25 +188,28 @@ const ProjectDashboard = ({ projectId }) => {
     ? 'bg-gradient-to-br from-slate-950 via-slate-950 to-slate-900'
     : 'bg-gradient-to-br from-slate-50 to-slate-100';
   const panelClass = isDarkMode
-    ? 'border-slate-700/50 bg-slate-800/30'
+    ? 'border-slate-800 bg-slate-800/30'
     : 'border-slate-200/60 bg-white/60';
   const inputClass = isDarkMode
     ? 'w-full rounded-lg border border-slate-700/60 bg-slate-900/60 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 outline-none transition focus:border-indigo-400/90 focus:ring-2 focus:ring-indigo-500/30'
     : 'w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-400/40';
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${pageBg}`}>
-      <div className={`px-8 pt-8 pb-6 border-b ${isDarkMode ? 'border-slate-800/50' : 'border-slate-200'}`}>
-        <h1 className={`text-3xl font-semibold tracking-tight mb-2 flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>
-          <FolderKanban size={30} className="text-indigo-400" />
-          Project Dashboard
-        </h1>
-        <p className={`text-sm ${isDarkMode ? 'text-slate-500' : 'text-slate-600'}`}>
-          Monitor progress, deadlines, and team activity in one place.
-        </p>
-      </div>
+    <div className={`min-h-screen transition-colors duration-300 ${pageBg} p-8`}>
+      <div className="max-w-7xl mx-auto">
+        <div className={`px-8 pt-8 pb-6 relative overflow-hidden rounded-[28px] border mb-8 ${isDarkMode ? 'border-slate-800 bg-slate-950/65' : 'border-slate-200 bg-white/85'}`}>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.14),transparent_35%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.12),transparent_30%)]" />
+          <div className="relative">
+            <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] mb-4 ${isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+              <FolderKanban className="h-3.5 w-3.5" />
+              Project Management
+            </div>
+            <h1 className={`text-4xl md:text-5xl font-black tracking-tight mb-3 ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>Project Dashboard</h1>
+            <p className={`max-w-xl text-base md:text-lg ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>Monitor progress, deadlines, and team activity in one place.</p>
+          </div>
+        </div>
 
-      <div className="px-8 py-8 space-y-8">
+        <div className="space-y-8">
         <div className={`border rounded-xl p-6 ${panelClass}`}>
           <label className={`block text-sm mb-2 font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
             Select Project
@@ -361,6 +364,7 @@ const ProjectDashboard = ({ projectId }) => {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 };

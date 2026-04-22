@@ -264,27 +264,34 @@ export default function RecommendationsPage() {
   const avgMatch  = enriched.length ? Math.round(enriched.reduce((a, g) => a + g.matchScore, 0) / enriched.length) : 0;
 
   return (
-    <div className="min-h-full">
-      {/* ── Header ── */}
-      <div className="mb-8">
-        <h1 className={`text-4xl font-black tracking-tight mb-2 ${isDarkMode ? 'text-white' : 'text-[#0f172a]'}`}>Recommendations</h1>
-        <p className={`text-[15px] font-medium ${isDarkMode ? 'text-slate-400' : 'text-[#64748b]'}`}>Groups perfectly matched to your skill profile.</p>
-      </div>
+    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-200' : 'bg-slate-50 text-slate-900'}`}>
+      <div className="px-8 py-8 max-w-7xl mx-auto">
+        <div className={`px-8 pt-8 pb-6 relative overflow-hidden rounded-[28px] border mb-8 ${isDarkMode ? 'border-slate-800 bg-slate-950/65' : 'border-slate-200 bg-white/85'}`}>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.14),transparent_35%),radial-gradient(circle_at_top_right,rgba(99,102,241,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.08),transparent_40%)]" />
+          <div className="relative">
+            <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] mb-4 ${isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+              <Zap className="h-3.5 w-3.5" />
+              AI Powered Matching
+            </div>
+            <h1 className={`text-4xl md:text-5xl font-black tracking-tight mb-3 ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>Recommendations</h1>
+            <p className={`max-w-xl text-base md:text-lg ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>Discover groups perfectly matched to your skills and learning goals.</p>
+          </div>
+        </div>
 
-      {/* ── Stats Row ── */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+        {/* ── Stats Row ── */}
+        <div className="grid grid-cols-4 gap-4 mb-8">
         {[
           { label: 'Total Matches', value: enriched.length },
           { label: 'Open Groups',   value: openCount },
           { label: 'Avg Match',     value: `${avgMatch}%` },
           { label: 'Requests Sent', value: sentCount },
         ].map(s => (
-          <div key={s.label} className={`rounded-2xl p-5 border ${isDarkMode ? 'bg-[#0f172a] border-slate-800 shadow-lg shadow-black/10' : 'bg-[#f4f7fb] border-[#e2e8f0]'}`}>
-            <p className={`text-[11px] font-black uppercase tracking-wider mb-1 ${isDarkMode ? 'text-slate-500' : 'text-[#94a3b8]'}`}>{s.label}</p>
-            <p className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-[#1e293b]'}`}>{s.value}</p>
+          <div key={s.label} className={`rounded-2xl p-5 border ${isDarkMode ? 'border-slate-800 bg-slate-900/60' : 'border-slate-200 bg-white'}`}>
+            <p className={`text-[11px] font-black uppercase tracking-wider mb-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-500'}`}>{s.label}</p>
+            <p className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>{s.value}</p>
           </div>
         ))}
-      </div>
+        </div>
 
       {/* ── Error ── */}
       {error && (
@@ -353,24 +360,25 @@ export default function RecommendationsPage() {
         ))}
       </div>
 
-      {/* ── Content Grid ── */}
-      {loading ? (
-        <div className="py-20 flex justify-center"><Loader className="animate-spin text-[#3b82f6]" size={40} /></div>
-      ) : displayed.length > 0 ? (
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {/* ── Content Grid ── */}
+        {loading ? (
+          <div className="py-20 flex justify-center"><Loader className="animate-spin text-indigo-500" size={40} /></div>
+        ) : displayed.length > 0 ? (
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {displayed.map(group => (
              <GroupCard key={group._id} group={group} reqStatus={requestMap[group._id]} onRequest={handleRequest} canSend={!!userId.trim()} isDarkMode={isDarkMode} />
           ))}
-        </div>
-      ) : (
-        <div className={`text-center py-24 rounded-[32px] border ${isDarkMode ? 'bg-[#0f172a] border-slate-800' : 'bg-[#f8fafc] border-[#e2e8f0]'}`}>
-          <div className={`w-20 h-20 mx-auto rounded-3xl flex items-center justify-center mb-6 shadow-sm ${isDarkMode ? 'bg-slate-800' : 'bg-white border border-[#e2e8f0]'}`}>
-            <Search size={32} strokeWidth={2.5} className={isDarkMode ? 'text-slate-500' : 'text-[#94a3b8]'} />
           </div>
-          <h3 className={`text-xl font-black mb-2 ${isDarkMode ? 'text-white' : 'text-[#0f172a]'}`}>No matches found</h3>
-          <p className={`font-semibold ${isDarkMode ? 'text-slate-500' : 'text-[#64748b]'}`}>Try adjusting your search filters.</p>
-        </div>
-      )}
+        ) : (
+          <div className={`text-center py-24 rounded-[32px] border ${isDarkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200'}`}>
+            <div className={`w-20 h-20 mx-auto rounded-3xl flex items-center justify-center mb-6 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
+              <Search size={32} strokeWidth={2.5} className={isDarkMode ? 'text-slate-500' : 'text-slate-400'} />
+            </div>
+            <h3 className={`text-xl font-black mb-2 ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>No matches found</h3>
+            <p className={`font-semibold ${isDarkMode ? 'text-slate-500' : 'text-slate-600'}`}>Try adjusting your search filters.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

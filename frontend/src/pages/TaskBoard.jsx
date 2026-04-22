@@ -149,7 +149,7 @@ const TaskBoard = ({ projectId }) => {
       setSelectedProjectId(projectId);
       localStorage.setItem('projectId', projectId);
     }
-  }, [projectId, projects, selectedProjectId]);
+  }, [projectId, projects]);
 
   useEffect(() => {
     if (selectedProjectId) {
@@ -270,7 +270,7 @@ const TaskBoard = ({ projectId }) => {
 
     if (!selectedProjectId) {
       return (
-        <div className={`border rounded-lg p-6 text-center ${isDarkMode ? 'bg-slate-800/50 border-white/10' : 'bg-gray-50 border-gray-200'}`}>
+        <div className={`border rounded-lg p-6 text-center ${isDarkMode ? 'bg-slate-900/60 border-white/10' : 'bg-gray-50 border-gray-200'}`}>
           <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
             🚀 Select a project from the dropdown above to view tasks
           </p>
@@ -283,7 +283,7 @@ const TaskBoard = ({ projectId }) => {
     }
 
     return tasks.length === 0 ? (
-      <div className={`text-center py-12 border rounded-lg ${isDarkMode ? 'bg-slate-800/50 border-white/10' : 'bg-gray-50 border-gray-200'}`}>
+      <div className={`text-center py-12 border rounded-lg ${isDarkMode ? 'bg-slate-900/60 border-white/10' : 'bg-gray-50 border-gray-200'}`}>
         <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
           ✨ No tasks yet. Click "Create Task" to get started!
         </p>
@@ -293,14 +293,31 @@ const TaskBoard = ({ projectId }) => {
 
   const content = renderContent();
 
+  const bgGradient = isDarkMode
+    ? 'bg-gradient-to-br from-slate-950 via-slate-950 to-slate-900'
+    : 'bg-gradient-to-br from-white via-slate-50 to-slate-100';
+
   return (
-    <div className="h-full flex flex-col">
+    <div className={`${bgGradient} min-h-screen p-8`}>
+      <div className="max-w-full mx-auto flex flex-col h-full">
+        {/* Hero Banner */}
+        <div className={`px-8 pt-8 pb-6 relative overflow-hidden rounded-[28px] border mb-8 ${isDarkMode ? 'border-slate-800 bg-slate-950/65' : 'border-slate-200 bg-white/85'}`}>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.14),transparent_35%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.12),transparent_30%)]" />
+          <div className="relative">
+            <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] mb-4 ${isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+              <CheckCircle className="h-3.5 w-3.5" />
+              Task Management
+            </div>
+            <h1 className={`text-4xl md:text-5xl font-black tracking-tight mb-3 ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>Task Board</h1>
+            <p className={`max-w-xl text-base md:text-lg ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>Manage and track tasks across your projects with an intuitive Kanban board.</p>
+          </div>
+        </div>
 
-      {/* Error/Loading Display */}
-      {content && <div className="mb-6">{content}</div>}
+        {/* Error/Loading Display */}
+        {content && <div className="mb-6">{content}</div>}
 
-      {/* Header */}
-      <div className="flex justify-between items-center">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className={`text-4xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             Task Board
@@ -337,10 +354,10 @@ const TaskBoard = ({ projectId }) => {
             <Plus size={20} /> Create Task
           </button>
         </div>
-      </div>
+        </div>
 
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-6 mt-8 pb-4 h-[calc(100%-120px)] overflow-x-auto">
+        <DragDropContext onDragEnd={onDragEnd}>
+          <div className="flex gap-6 pb-4 overflow-x-auto flex-1">
 
           {columns.map(col => {
             const columnTasks = tasks.filter(t => t.status === col.id);
@@ -432,20 +449,21 @@ const TaskBoard = ({ projectId }) => {
             );
           })}
 
-        </div>
-      </DragDropContext>
+          </div>
+        </DragDropContext>
 
-      {/* Modal */}
-      {isModalOpen && (
-        <CreateTaskModal
-          projectId={selectedProjectId}
-          projects={projects}
-          projectMembers={projectMembers}
-          onProjectChange={handleModalProjectChange}
-          onClose={() => setIsModalOpen(false)}
-          onTaskCreated={fetchTasks}
-        />
-      )}
+        {/* Modal */}
+        {isModalOpen && (
+          <CreateTaskModal
+            projectId={selectedProjectId}
+            projects={projects}
+            projectMembers={projectMembers}
+            onProjectChange={handleModalProjectChange}
+            onClose={() => setIsModalOpen(false)}
+            onTaskCreated={fetchTasks}
+          />
+        )}
+      </div>
     </div>
   );
 };

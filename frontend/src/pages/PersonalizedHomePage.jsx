@@ -245,7 +245,7 @@ const PersonalizedHomePage = ({ user }) => {
                     <ArrowRight className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={() => navigate("/dashboard/projects")}
+                    onClick={() => navigate("/dashboard/project-dashboard")}
                     className="inline-flex items-center gap-2 rounded-full border border-slate-700 px-6 py-3 text-sm font-semibold text-slate-100 transition hover:border-blue-400/60 hover:text-white"
                   >
                     View Projects

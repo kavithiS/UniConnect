@@ -39,6 +39,7 @@ function UserProfilePage({ user, onUserUpdate }) {
     fullName: user?.fullName || user?.name || "",
     email: user?.email || "",
     registrationNumber: user?.registrationNumber || "",
+    faculty: user?.faculty || "",
     year: user?.year || "",
     semester: user?.semester || "",
     enrolledYear: user?.enrolledYear || "",
@@ -47,6 +48,7 @@ function UserProfilePage({ user, onUserUpdate }) {
       ? [...user.achievements]
       : [],
     about: user?.about || "",
+    profilePicture: user?.profilePicture || "",
   }));
 
   useEffect(() => {
@@ -54,6 +56,7 @@ function UserProfilePage({ user, onUserUpdate }) {
       fullName: user?.fullName || user?.name || "",
       email: user?.email || "",
       registrationNumber: user?.registrationNumber || "",
+      faculty: user?.faculty || "",
       year: user?.year || "",
       semester: user?.semester || "",
       enrolledYear: user?.enrolledYear || "",
@@ -62,6 +65,7 @@ function UserProfilePage({ user, onUserUpdate }) {
         ? [...user.achievements]
         : [],
       about: user?.about || "",
+      profilePicture: user?.profilePicture || "",
     });
   }, [user]);
 
@@ -80,6 +84,11 @@ function UserProfilePage({ user, onUserUpdate }) {
         const data = await fetchFeedbackReceived(token);
         if (isMounted) {
           setFeedbackList(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error("Failed to load feedback:", err);
+        if (isMounted) {
+          setFeedbackList([]);
         }
       } finally {
         if (isMounted) {
@@ -165,6 +174,7 @@ function UserProfilePage({ user, onUserUpdate }) {
       editFormData.fullName,
       editFormData.email,
       editFormData.registrationNumber,
+      editFormData.faculty,
       editFormData.year,
       editFormData.semester,
       editFormData.enrolledYear,
@@ -229,7 +239,42 @@ function UserProfilePage({ user, onUserUpdate }) {
     }));
   };
 
+  const handleProfilePictureChange = (event) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setToast({ message: "Image size must be less than 5MB.", type: "error" });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditFormData((prev) => ({
+          ...prev,
+          profilePicture: reader.result,
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSaveProfile = async () => {
+    // Client-side validation for required fields
+    const required = [
+      { key: "fullName", label: "Full Name" },
+      { key: "registrationNumber", label: "Registration Number" },
+      { key: "year", label: "Year" },
+      { key: "semester", label: "Semester" },
+      { key: "enrolledYear", label: "Enrolled Year" },
+      { key: "faculty", label: "Faculty" },
+    ];
+    for (const field of required) {
+      if (!String(editFormData[field.key] || "").trim()) {
+        setToast({ message: `${field.label} is required.`, type: "error" });
+        return;
+      }
+    }
+
     try {
       const token = getAuthToken();
       if (!token) {
@@ -259,7 +304,7 @@ function UserProfilePage({ user, onUserUpdate }) {
   };
 
   return (
-    <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 space-y-6 transition-colors duration-300">
+    <div className={`max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 space-y-6 transition-colors duration-300 ${isDarkMode ? "text-slate-100" : "text-slate-900"}`}>
       {toast && (
         <Toast
           message={toast.message}
@@ -269,32 +314,37 @@ function UserProfilePage({ user, onUserUpdate }) {
       )}
 
       <div
-        className={`rounded-3xl border overflow-hidden shadow-sm ${
+        className={`rounded-[28px] border overflow-hidden shadow-[0_24px_80px_rgba(0,0,0,0.18)] ${
           isDarkMode
-            ? "border-slate-800 bg-slate-900/50"
+            ? "border-slate-800 bg-slate-950/60"
             : "border-slate-200 bg-white"
         }`}
       >
+        <div className="h-1 bg-gradient-to-r from-sky-400 via-indigo-500 to-fuchsia-500" />
         <div className="px-6 sm:px-8 pt-8 pb-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
             <div className="flex items-center gap-5 sm:gap-6 flex-1 min-w-0">
               <div
-                className={`w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center text-3xl sm:text-4xl font-bold shadow-lg shrink-0 ${
+                className={`w-20 h-20 sm:w-24 sm:h-24 rounded-[28px] flex items-center justify-center text-3xl sm:text-4xl font-bold shadow-lg shrink-0 border ${
                   isDarkMode
-                    ? "bg-gradient-to-br from-indigo-500 to-purple-600 text-white"
-                    : "bg-gradient-to-br from-indigo-500 to-purple-600 text-white"
+                    ? "border-slate-700 bg-gradient-to-br from-sky-500 via-indigo-500 to-fuchsia-500 text-white"
+                    : "border-slate-200 bg-gradient-to-br from-sky-500 via-indigo-500 to-fuchsia-500 text-white"
                 }`}
               >
-                {(user?.fullName || user?.name || "U")[0].toUpperCase()}
+                {user?.profilePicture ? (
+                  <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover rounded-3xl" />
+                ) : (
+                  (user?.fullName || user?.name || "U")[0].toUpperCase()
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <h1
-                  className={`text-2xl sm:text-3xl font-bold tracking-tight truncate ${isDarkMode ? "text-white" : "text-slate-900"}`}
+                  className={`text-2xl sm:text-3xl font-bold tracking-tight truncate ${isDarkMode ? "text-white" : "text-slate-950"}`}
                 >
                   {user?.fullName || user?.name || "User"}
                 </h1>
                 <p
-                  className={`flex items-center gap-2 mt-1.5 font-medium truncate ${isDarkMode ? "text-indigo-400" : "text-indigo-600"}`}
+                  className={`flex items-center gap-2 mt-1.5 font-medium truncate ${isDarkMode ? "text-indigo-300" : "text-indigo-600"}`}
                 >
                   <GraduationCap size={18} className="shrink-0" />
                   <span className="truncate">
@@ -308,7 +358,7 @@ function UserProfilePage({ user, onUserUpdate }) {
               <div className="shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
                 <button
                   onClick={() => setIsEditing(true)}
-                  className="w-full sm:w-auto px-6 py-3 sm:py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg hover:shadow-indigo-500/25 transition-all active:scale-95"
+                  className="w-full sm:w-auto px-6 py-3 sm:py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-500 hover:to-sky-500 text-white shadow-lg hover:shadow-indigo-500/25 transition-all active:scale-95"
                 >
                   <Edit3 size={18} />
                   Edit Profile
@@ -353,17 +403,18 @@ function UserProfilePage({ user, onUserUpdate }) {
 
       {isEditing ? (
         <div
-          className={`rounded-3xl border p-6 sm:p-8 space-y-8 shadow-sm ${
+          className={`rounded-[28px] border p-6 sm:p-8 space-y-8 shadow-[0_24px_80px_rgba(0,0,0,0.18)] ${
             isDarkMode
-              ? "border-slate-800 bg-slate-900/50"
+              ? "border-slate-800 bg-slate-950/60"
               : "border-slate-200 bg-white"
           }`}
         >
+          <div className="h-1 -mx-6 sm:-mx-8 -mt-6 sm:-mt-8 bg-gradient-to-r from-sky-400 via-indigo-500 to-fuchsia-500" />
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h2
-              className={`text-xl font-bold flex items-center gap-2 ${isDarkMode ? "text-white" : "text-slate-900"}`}
+              className={`text-xl font-bold flex items-center gap-2 ${isDarkMode ? "text-white" : "text-slate-950"}`}
             >
-              <Edit3 size={20} className="text-indigo-500" /> Edit Your Profile
+              <Edit3 size={20} className="text-indigo-400" /> Edit Your Profile
             </h2>
             <div className="flex gap-3 w-full sm:w-auto">
               <button
@@ -379,11 +430,36 @@ function UserProfilePage({ user, onUserUpdate }) {
               </button>
               <button
                 onClick={handleSaveProfile}
-                className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg hover:shadow-indigo-500/25 transition-all active:scale-95"
+                className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-500 hover:to-sky-500 text-white shadow-lg hover:shadow-indigo-500/25 transition-all active:scale-95"
               >
                 <Save size={18} />
                 Save Changes
               </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center mb-6">
+            <div className="relative group">
+              <div className="w-28 h-28 rounded-3xl flex items-center justify-center text-4xl font-bold shadow-lg overflow-hidden border-4 border-slate-200 dark:border-gray-600 bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
+                {editFormData.profilePicture ? (
+                  <img
+                    src={editFormData.profilePicture}
+                    alt="Profile preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  (editFormData.fullName || "U")[0].toUpperCase()
+                )}
+              </div>
+              <label className="absolute bottom-[-10px] right-[-10px] w-10 h-10 bg-indigo-600 text-white rounded-full cursor-pointer shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center border-4 border-white dark:border-gray-800 hover:scale-110 active:scale-95">
+                <Edit3 size={18} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfilePictureChange}
+                  className="hidden"
+                />
+              </label>
             </div>
           </div>
 
@@ -411,6 +487,14 @@ function UserProfilePage({ user, onUserUpdate }) {
               value={editFormData.registrationNumber}
               onChange={handleEditChange}
               icon={<GraduationCap size={16} />}
+              isDark={isDarkMode}
+            />
+            <InputField
+              label="Faculty"
+              name="faculty"
+              value={editFormData.faculty}
+              onChange={handleEditChange}
+              icon={<BookOpen size={16} />}
               isDark={isDarkMode}
             />
             <InputField
@@ -443,7 +527,7 @@ function UserProfilePage({ user, onUserUpdate }) {
             <label
               className={`text-sm font-semibold flex items-center gap-2 ${isDarkMode ? "text-slate-200" : "text-slate-800"}`}
             >
-              <Code size={16} className="text-indigo-500" /> Skills & Expertise
+              <Code size={16} className="text-sky-400" /> Skills & Expertise
             </label>
             <div className="flex flex-wrap gap-2">
               {editFormData.skills.length === 0 ? (
@@ -507,7 +591,7 @@ function UserProfilePage({ user, onUserUpdate }) {
             <label
               className={`text-sm font-semibold flex items-center gap-2 ${isDarkMode ? "text-slate-200" : "text-slate-800"}`}
             >
-              <Trophy size={16} className="text-blue-500" /> Achievements &
+              <Trophy size={16} className="text-fuchsia-400" /> Achievements &
               Certificates
             </label>
             <div className="flex flex-col gap-3">
@@ -574,7 +658,7 @@ function UserProfilePage({ user, onUserUpdate }) {
             <label
               className={`text-sm font-semibold flex items-center gap-2 ${isDarkMode ? "text-slate-200" : "text-slate-800"}`}
             >
-              <Award size={16} className="text-indigo-500" /> About You
+              <Award size={16} className="text-indigo-400" /> About You
             </label>
             <textarea
               name="about"
@@ -595,12 +679,12 @@ function UserProfilePage({ user, onUserUpdate }) {
           <div className="lg:col-span-2 space-y-6">
             {user?.about && (
               <div
-                className={`rounded-3xl border p-6 sm:p-8 shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-1 hover:border-indigo-500/30 ${isDarkMode ? "border-slate-800 bg-slate-900/50 hover:bg-slate-800/50" : "border-slate-200 bg-white hover:bg-slate-50/50"}`}
+                className={`rounded-[24px] border p-6 sm:p-8 shadow-[0_24px_80px_rgba(0,0,0,0.12)] transition-all duration-300 hover:shadow-[0_20px_60px_rgba(0,0,0,0.18)] hover:-translate-y-1 hover:border-slate-300 ${isDarkMode ? "border-slate-800 bg-slate-900/70 hover:bg-slate-900/80" : "border-slate-200 bg-white hover:bg-slate-50"}`}
               >
                 <h2
-                  className={`text-lg font-bold mb-4 flex items-center gap-2 ${isDarkMode ? "text-white" : "text-slate-900"}`}
+                  className={`text-lg font-bold mb-4 flex items-center gap-2 ${isDarkMode ? "text-white" : "text-slate-950"}`}
                 >
-                  <Award size={20} className="text-indigo-500" /> About Me
+                  <Award size={20} className="text-indigo-400" /> About Me
                 </h2>
                 <p
                   className={`leading-relaxed ${isDarkMode ? "text-slate-300" : "text-slate-600"}`}
@@ -611,12 +695,12 @@ function UserProfilePage({ user, onUserUpdate }) {
             )}
 
             <div
-              className={`rounded-3xl border p-6 sm:p-8 shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-1 hover:border-indigo-500/30 ${isDarkMode ? "border-slate-800 bg-slate-900/50 hover:bg-slate-800/50" : "border-slate-200 bg-white hover:bg-slate-50/50"}`}
+              className={`rounded-[24px] border p-6 sm:p-8 shadow-[0_24px_80px_rgba(0,0,0,0.12)] transition-all duration-300 hover:shadow-[0_20px_60px_rgba(0,0,0,0.18)] hover:-translate-y-1 hover:border-slate-300 ${isDarkMode ? "border-slate-800 bg-slate-900/70 hover:bg-slate-900/80" : "border-slate-200 bg-white hover:bg-slate-50"}`}
             >
               <h2
-                className={`text-lg font-bold mb-6 flex items-center gap-2 ${isDarkMode ? "text-white" : "text-slate-900"}`}
+                className={`text-lg font-bold mb-6 flex items-center gap-2 ${isDarkMode ? "text-white" : "text-slate-950"}`}
               >
-                <GraduationCap size={20} className="text-indigo-500" /> Academic
+                <GraduationCap size={20} className="text-sky-400" /> Academic
                 Information
               </h2>
               <div className="grid sm:grid-cols-2 gap-4">
@@ -636,6 +720,12 @@ function UserProfilePage({ user, onUserUpdate }) {
                   icon={<GraduationCap size={18} />}
                   label="Registration"
                   value={user?.registrationNumber || "-"}
+                  isDark={isDarkMode}
+                />
+                <InfoCard
+                  icon={<BookOpen size={18} />}
+                  label="Faculty"
+                  value={user?.faculty || "-"}
                   isDark={isDarkMode}
                 />
                 <InfoCard
@@ -660,13 +750,13 @@ function UserProfilePage({ user, onUserUpdate }) {
             </div>
 
             <div
-              className={`rounded-3xl border p-6 sm:p-8 shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-1 hover:border-indigo-500/30 ${isDarkMode ? "border-slate-800 bg-slate-900/50 hover:bg-slate-800/50" : "border-slate-200 bg-white hover:bg-slate-50/50"}`}
+              className={`rounded-[24px] border p-6 sm:p-8 shadow-[0_24px_80px_rgba(0,0,0,0.12)] transition-all duration-300 hover:shadow-[0_20px_60px_rgba(0,0,0,0.18)] hover:-translate-y-1 hover:border-slate-300 ${isDarkMode ? "border-slate-800 bg-slate-900/70 hover:bg-slate-900/80" : "border-slate-200 bg-white hover:bg-slate-50"}`}
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <h2
-                  className={`text-lg font-bold flex items-center gap-2 ${isDarkMode ? "text-white" : "text-slate-900"}`}
+                  className={`text-lg font-bold flex items-center gap-2 ${isDarkMode ? "text-white" : "text-slate-950"}`}
                 >
-                  <Star size={20} className="text-amber-500" /> Feedback from
+                  <Star size={20} className="text-amber-400" /> Feedback from
                   Teammates
                 </h2>
                 <span
@@ -740,7 +830,7 @@ function UserProfilePage({ user, onUserUpdate }) {
                       <p
                         className={`text-sm leading-relaxed break-words ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}
                       >
-                        "{feedback.comment}"
+                        {feedback.comment}
                       </p>
                     </div>
                   ))}
@@ -751,12 +841,12 @@ function UserProfilePage({ user, onUserUpdate }) {
 
           <div className="space-y-6">
             <div
-              className={`rounded-3xl border p-6 shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-1 hover:border-indigo-500/30 ${isDarkMode ? "border-slate-800 bg-slate-900/50 hover:bg-slate-800/50" : "border-slate-200 bg-white hover:bg-slate-50/50"}`}
+              className={`rounded-[24px] border p-6 shadow-[0_24px_80px_rgba(0,0,0,0.12)] transition-all duration-300 hover:shadow-[0_20px_60px_rgba(0,0,0,0.18)] hover:-translate-y-1 hover:border-slate-300 ${isDarkMode ? "border-slate-800 bg-slate-900/70 hover:bg-slate-900/80" : "border-slate-200 bg-white hover:bg-slate-50"}`}
             >
               <h2
-                className={`text-lg font-bold mb-5 flex items-center gap-2 ${isDarkMode ? "text-white" : "text-slate-900"}`}
+                className={`text-lg font-bold mb-5 flex items-center gap-2 ${isDarkMode ? "text-white" : "text-slate-950"}`}
               >
-                <Code size={20} className="text-indigo-500" /> Skills
+                <Code size={20} className="text-sky-400" /> Skills
               </h2>
               <div className="flex flex-wrap gap-2">
                 {(user?.skills || []).length === 0 ? (
@@ -791,12 +881,12 @@ function UserProfilePage({ user, onUserUpdate }) {
             </div>
 
             <div
-              className={`rounded-3xl border p-6 shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-1 hover:border-blue-500/30 ${isDarkMode ? "border-slate-800 bg-slate-900/50 hover:bg-slate-800/50" : "border-slate-200 bg-white hover:bg-slate-50/50"}`}
+              className={`rounded-[24px] border p-6 shadow-[0_24px_80px_rgba(0,0,0,0.12)] transition-all duration-300 hover:shadow-[0_20px_60px_rgba(0,0,0,0.18)] hover:-translate-y-1 hover:border-slate-300 ${isDarkMode ? "border-slate-800 bg-slate-900/70 hover:bg-slate-900/80" : "border-slate-200 bg-white hover:bg-slate-50"}`}
             >
               <h2
-                className={`text-lg font-bold mb-5 flex items-center gap-2 ${isDarkMode ? "text-white" : "text-slate-900"}`}
+                className={`text-lg font-bold mb-5 flex items-center gap-2 ${isDarkMode ? "text-white" : "text-slate-950"}`}
               >
-                <Trophy size={20} className="text-blue-500" /> Achievements &
+                <Trophy size={20} className="text-fuchsia-400" /> Achievements &
                 Certificates
               </h2>
               <div className="flex flex-col gap-3">
@@ -838,13 +928,13 @@ function UserProfilePage({ user, onUserUpdate }) {
             </div>
 
             <div
-              className={`rounded-3xl border p-6 shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-1 hover:border-emerald-500/30 ${isDarkMode ? "border-slate-800 bg-slate-900/50 hover:bg-slate-800/50" : "border-slate-200 bg-white hover:bg-slate-50/50"}`}
+              className={`rounded-[24px] border p-6 shadow-[0_24px_80px_rgba(0,0,0,0.12)] transition-all duration-300 hover:shadow-[0_20px_60px_rgba(0,0,0,0.18)] hover:-translate-y-1 hover:border-slate-300 ${isDarkMode ? "border-slate-800 bg-slate-900/70 hover:bg-slate-900/80" : "border-slate-200 bg-white hover:bg-slate-50"}`}
             >
               <div className="flex items-center justify-between mb-5">
                 <h2
-                  className={`text-lg font-bold flex items-center gap-2 ${isDarkMode ? "text-white" : "text-slate-900"}`}
+                  className={`text-lg font-bold flex items-center gap-2 ${isDarkMode ? "text-white" : "text-slate-950"}`}
                 >
-                  <Users size={20} className="text-emerald-500" /> Groups
+                  <Users size={20} className="text-emerald-400" /> Groups
                 </h2>
                 <span
                   className={`text-xs font-semibold px-2.5 py-1 rounded-full ${isDarkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"}`}
@@ -918,7 +1008,7 @@ function StatCard({ label, value, accent, isDark, progress }) {
 
   return (
     <div
-      className={`rounded-2xl p-4 sm:p-5 border transition-all duration-300 hover:shadow-md min-w-0 flex flex-col h-full ${isDark ? "bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80" : "bg-slate-50 border-slate-100 hover:bg-white"}`}
+      className={`rounded-[24px] p-4 sm:p-5 border transition-all duration-300 hover:shadow-[0_20px_60px_rgba(0,0,0,0.12)] min-w-0 flex flex-col h-full ${isDark ? "bg-slate-900/70 border-slate-800 hover:bg-slate-900/80" : "bg-white border-slate-200 hover:bg-slate-50"}`}
     >
       <div className="flex-1 flex flex-col justify-center">
         <p
@@ -952,7 +1042,7 @@ function StatCard({ label, value, accent, isDark, progress }) {
 function InfoCard({ icon, label, value, isDark }) {
   return (
     <div
-      className={`flex items-start gap-3 p-4 rounded-xl border min-w-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-indigo-500/30 ${isDark ? "border-slate-800 bg-slate-900/60 hover:bg-slate-800/80" : "border-slate-200 bg-slate-50 hover:bg-white"}`}
+      className={`flex items-start gap-3 p-4 rounded-xl border min-w-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(0,0,0,0.12)] hover:border-slate-300 ${isDark ? "border-slate-800 bg-slate-900/70 hover:bg-slate-900/80" : "border-slate-200 bg-slate-50 hover:bg-white"}`}
     >
       <div
         className={`shrink-0 ${isDark ? "text-indigo-300" : "text-indigo-500"}`}
@@ -993,12 +1083,12 @@ function InputField({ label, name, value, onChange, icon, isDark, readOnly }) {
         className={`w-full px-4 py-3 rounded-lg outline-none transition-all duration-300 ${
           readOnly
             ? isDark
-              ? "bg-slate-800/60 border border-slate-700/50 text-slate-400 cursor-not-allowed opacity-80"
-              : "bg-slate-200/60 border border-slate-200 text-slate-500 cursor-not-allowed opacity-80"
+              ? "bg-slate-900/70 border border-slate-800 text-slate-400 cursor-not-allowed opacity-80"
+              : "bg-slate-100 border border-slate-200 text-slate-500 cursor-not-allowed opacity-80"
             : `hover:shadow-sm hover:border-indigo-500/50 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 ${
                 isDark
                   ? "bg-slate-950/50 border border-slate-700 text-slate-100 placeholder-slate-500 hover:bg-slate-900/80"
-                  : "bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400 hover:bg-white"
+                  : "bg-white border border-slate-300 text-slate-900 placeholder-slate-400 hover:bg-slate-50"
               }`
         }`}
       />

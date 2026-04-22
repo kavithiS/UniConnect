@@ -1,60 +1,81 @@
 import React from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
-  Sun,
-  Moon,
   Users,
-  User,
   ClipboardList,
-  FolderPlus,
   LayoutDashboard,
+  FolderPlus,
   MessageSquare,
   CheckSquare,
   House,
   Star,
-  LogOut,
+  Menu,
+  X,
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
+import Header from "../components/layout/Header";
+import FloatingActionButton from "../components/layout/FloatingActionButton";
 
 function MainLayout({ user, onLogout }) {
-  const { isDarkMode, toggleTheme } = useTheme();
+  const { isDarkMode } = useTheme();
   const location = useLocation();
   const isMobilePreviewMode =
     new URLSearchParams(location.search).get("preview") === "mobile";
+  const [sidebarOpen, setSidebarOpen] = React.useState(true);
 
-  const menuItems = [
-    { path: "/dashboard/home", icon: <House size={18} />, label: "Home" },
-    { path: "/dashboard/groups", icon: <Users size={18} />, label: "Groups" },
+  // The "Big 4" Navigation Model
+  const navigationSections = [
     {
-      path: "/dashboard/requests",
-      icon: <MessageSquare size={18} />,
-      label: "Requests & Invites",
+      section: "Work",
+      items: [
+        { path: "/dashboard/home", icon: <House size={18} />, label: "Dashboard" },
+      ],
     },
     {
-      path: "/dashboard/recommendations",
-      icon: <CheckSquare size={18} />,
-      label: "Recommendations",
+      section: "Collaboration",
+      items: [
+        { path: "/dashboard/groups", icon: <Users size={18} />, label: "Groups" },
+        {
+          path: "/dashboard/chat",
+          icon: <MessageSquare size={18} />,
+          label: "Group Chat",
+        },
+        {
+          path: "/dashboard/recommendations",
+          icon: <CheckSquare size={18} />,
+          label: "Recommendations",
+        },
+      ],
     },
     {
-      path: "/dashboard/feedback",
-      icon: <Star size={18} />,
-      label: "Feedback",
+      section: "Projects",
+      items: [
+        {
+          path: "/dashboard/project-dashboard",
+          icon: <LayoutDashboard size={18} />,
+          label: "Projects",
+        },
+        {
+          path: "/dashboard/tasks",
+          icon: <ClipboardList size={18} />,
+          label: "Task Board",
+        },
+        {
+          path: "/dashboard/add-project",
+          icon: <FolderPlus size={18} />,
+          label: "Add Project",
+        },
+      ],
     },
-    { path: "/dashboard/profile", icon: <User size={18} />, label: "Profile" },
     {
-      path: "/dashboard/tasks",
-      icon: <ClipboardList size={18} />,
-      label: "Task Board",
-    },
-    {
-      path: "/dashboard/project-dashboard",
-      icon: <LayoutDashboard size={18} />,
-      label: "Projects",
-    },
-    {
-      path: "/dashboard/add-project",
-      icon: <FolderPlus size={18} />,
-      label: "Add Project",
+      section: "Community",
+      items: [
+        {
+          path: "/dashboard/feedback",
+          icon: <Star size={18} />,
+          label: "Feedback",
+        },
+      ],
     },
   ];
 
@@ -68,110 +89,104 @@ function MainLayout({ user, onLogout }) {
 
   return (
     <div
-      className={`flex min-h-screen transition-colors duration-300 ${isDarkMode ? "bg-gradient-to-br from-slate-950 via-slate-950 to-slate-900" : "bg-gradient-to-br from-slate-50 to-slate-100"}`}
+      className={`flex min-h-screen transition-colors duration-300 ${isDarkMode ? "bg-slate-950" : "bg-slate-50"}`}
     >
-      {/* Sidebar */}
+      {/* Minimalist Sidebar - Collapsed by default */}
       <div
-        className={`w-[250px] border-r p-6 flex flex-col gap-8 backdrop-blur-md transition-colors duration-300 ${isDarkMode ? "border-slate-800 bg-slate-950/50" : "border-slate-200 bg-white/50"}`}
+        className={`fixed left-0 top-16 bottom-0 transition-all duration-300 ease-in-out z-30 ${
+          sidebarOpen ? "w-64" : "w-20"
+        } ${
+          isDarkMode
+            ? "bg-slate-900/95 border-r border-slate-800"
+            : "bg-white/95 border-r border-slate-200"
+        } backdrop-blur-sm`}
       >
-        {/* Logo */}
-        <div className="flex items-center gap-2 mb-2">
-          <div
-            className={`w-6 h-6 rounded-md bg-gradient-to-br ${isDarkMode ? "from-slate-500 to-slate-600" : "from-blue-400 to-blue-500"}`}
-          ></div>
-          <span
-            className={`text-sm font-semibold tracking-tight ${isDarkMode ? "text-white" : "text-slate-950"}`}
-          >
-            Uni Connect
-          </span>
-        </div>
-
-        {/* Navigation */}
-        <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-          <div
-            className={`px-3 text-xs uppercase tracking-widest font-medium mb-3 ${isDarkMode ? "text-slate-500" : "text-slate-600"}`}
-          >
-            Navigation
-          </div>
-          <nav className="space-y-1">
-            {menuItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.path === "/dashboard/home"}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium no-underline transition-all duration-200 ${
-                    isActive
-                      ? isDarkMode
-                        ? "bg-slate-800 text-white"
-                        : "bg-slate-200 text-slate-950"
-                      : isDarkMode
-                        ? "text-slate-400 hover:text-slate-300 hover:bg-slate-800/50"
-                        : "text-slate-600 hover:text-slate-950 hover:bg-slate-100"
-                  }`
-                }
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
-          </nav>
-        </div>
-
-        {/* Theme Toggle - Bottom */}
-        <div
-          className={`mt-auto pt-6 border-t space-y-2 ${isDarkMode ? "border-slate-800" : "border-slate-200"}`}
+        {/* Sidebar Toggle */}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className={`absolute -right-4 top-6 p-1 rounded-full transition-all duration-200 ${
+            isDarkMode
+              ? "bg-slate-800 hover:bg-slate-700 text-slate-300"
+              : "bg-slate-200 hover:bg-slate-300 text-slate-700"
+          }`}
         >
-        
-          {user && (
-            <div
-              className={`px-3 py-2 text-xs rounded-lg ${isDarkMode ? "bg-slate-900 text-slate-400" : "bg-slate-100 text-slate-600"}`}
-            >
-              Signed in as {user.fullName || user.name || user.email}
-            </div>
+          {sidebarOpen ? <X size={16} /> : <Menu size={16} />}
+        </button>
+
+        {/* Logo */}
+        <div className={`p-4 border-b ${isDarkMode ? "border-slate-800" : "border-slate-200"}`}>
+          <div
+            className={`w-8 h-8 rounded-lg bg-gradient-to-br ${
+              isDarkMode ? "from-indigo-500 to-cyan-600" : "from-blue-500 to-cyan-500"
+            }`}
+          />
+          {sidebarOpen && (
+            <p className={`text-xs font-semibold mt-2 ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>
+              UniConnect
+            </p>
           )}
-
-          <button
-            onClick={onLogout}
-            className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg font-medium transition-all duration-200 ${
-              isDarkMode
-                ? "bg-rose-900/40 hover:bg-rose-900/60 text-rose-200"
-                : "bg-rose-100 hover:bg-rose-200 text-rose-700"
-            }`}
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="text-sm">Logout</span>
-          </button>
-
-          <button
-            onClick={toggleTheme}
-            className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg font-medium transition-all duration-200 ${
-              isDarkMode
-                ? "bg-slate-800 hover:bg-slate-700 text-slate-300"
-                : "bg-slate-200 hover:bg-slate-300 text-slate-700"
-            }`}
-          >
-            {isDarkMode ? (
-              <>
-                <Sun className="w-4 h-4" />
-                <span className="text-sm">Light Mode</span>
-              </>
-            ) : (
-              <>
-                <Moon className="w-4 h-4" />
-                <span className="text-sm">Dark Mode</span>
-              </>
-            )}
-          </button>
         </div>
+
+        {/* Navigation Sections */}
+        <nav className="p-4 space-y-6 overflow-y-auto h-[calc(100vh-120px)]">
+          {navigationSections.map((section, idx) => (
+            <div key={idx}>
+              {sidebarOpen && (
+                <div
+                  className={`text-xs uppercase tracking-wider font-semibold mb-3 px-2 ${
+                    isDarkMode ? "text-slate-500" : "text-slate-600"
+                  }`}
+                >
+                  {section.section}
+                </div>
+              )}
+              <div className="space-y-1">
+                {section.items.map((item) => (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    className={({ isActive: active }) =>
+                      `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium no-underline transition-all duration-200 ${
+                        active
+                          ? isDarkMode
+                            ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
+                            : "bg-blue-100 text-blue-700 border border-blue-200"
+                          : isDarkMode
+                            ? "text-slate-400 hover:text-slate-300 hover:bg-slate-800/50"
+                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                      } ${!sidebarOpen ? "justify-center" : ""}`
+                    }
+                    title={!sidebarOpen ? item.label : undefined}
+                  >
+                    {item.icon}
+                    {sidebarOpen && <span>{item.label}</span>}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          ))}
+        </nav>
       </div>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="py-8 px-12 transition-colors duration-300">
-          <Outlet />
-        </div>
-      </main>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <Header user={user} onLogout={onLogout} />
+
+        {/* Page Content */}
+        <main
+          className={`flex-1 overflow-y-auto transition-all duration-300 ${
+            sidebarOpen ? "ml-64" : "ml-20"
+          } pt-16`}
+        >
+          <div className="p-8 transition-colors duration-300">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+
+      {/* Floating Action Button */}
+      <FloatingActionButton />
     </div>
   );
 }
