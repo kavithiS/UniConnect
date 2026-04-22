@@ -204,6 +204,8 @@ const GroupChat = () => {
   const [showGroupDetails, setShowGroupDetails] = useState(false); // Group details panel
   const [noGroupsAvailable, setNoGroupsAvailable] = useState(false); // Flag when no groups exist
   const [chatSelectionNonce, setChatSelectionNonce] = useState(0);
+  const [chatSidebarOpen, setChatSidebarOpen] = useState(true); // Collapsible sidebar
+  const [chatSearch, setChatSearch] = useState(""); // Search filter for chat list
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -2141,33 +2143,116 @@ const GroupChat = () => {
     );
   }
 
+  // Filter groups by search query
+  const filteredGroups = chatSearch.trim()
+    ? userGroups.filter((g) =>
+        (g.groupName || "").toLowerCase().includes(chatSearch.trim().toLowerCase())
+      )
+    : userGroups;
+
   return (
     <div
       className={`flex flex-row ${screenHeightClass} relative w-full max-w-full min-w-0 box-border overflow-x-hidden ${isDarkMode ? "bg-gray-900" : "bg-gray-100"}`}
     >
-      {/* Messages Sidebar */}
+      {/* ── Sidebar toggle button (always visible) ── */}
+      <button
+        onClick={() => setChatSidebarOpen((prev) => !prev)}
+        title={chatSidebarOpen ? "Hide sidebar" : "Show sidebar"}
+        aria-label={chatSidebarOpen ? "Collapse chat list" : "Expand chat list"}
+        className={`absolute top-1/2 -translate-y-1/2 z-30 flex items-center justify-center w-6 h-10 rounded-r-lg shadow-md opacity-40 hover:opacity-100 transition-all duration-300 ease-in-out ${
+          chatSidebarOpen ? "left-64" : "left-0"
+        } ${
+          isDarkMode
+            ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
+            : "bg-white hover:bg-gray-100 text-gray-600 border border-gray-200"
+        }`}
+      >
+        <svg
+          className={`w-3.5 h-3.5 transition-transform duration-300 ${
+            chatSidebarOpen ? "" : "rotate-180"
+          }`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+
+      {/* ── Messages Sidebar ── */}
       <div
-        className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200"} border-r flex flex-col w-64 min-h-0 flex-shrink-0`}
+        className={`${
+          isDarkMode ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200"
+        } border-r flex flex-col min-h-0 flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out ${
+          chatSidebarOpen ? "w-64 opacity-100" : "w-0 opacity-0"
+        }`}
       >
         {/* Sidebar Header */}
-        <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} border-b px-4 py-4 flex-shrink-0`}>
-          <h2 className={`text-lg font-bold mb-3 ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>
-            Messages
-          </h2>
-          <div className={`flex items-center px-3 py-2 rounded-full ${isDarkMode ? "bg-gray-700" : "bg-gray-200"}`}>
-            <svg className={`w-4 h-4 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        <div
+          className={`${
+            isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+          } border-b px-4 py-4 flex-shrink-0 min-w-[256px]`}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={`text-lg font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>
+              Messages
+            </h2>
+            {loadingGroups && (
+              <div className="h-4 w-4 rounded-full border-2 border-t-blue-500 border-gray-300 animate-spin" />
+            )}
+          </div>
+          {/* Search Bar */}
+          <div
+            className={`flex items-center px-3 py-2 rounded-full ${
+              isDarkMode ? "bg-gray-700" : "bg-gray-200"
+            }`}
+          >
+            <svg
+              className={`w-4 h-4 flex-shrink-0 ${
+                isDarkMode ? "text-gray-400" : "text-gray-500"
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
             </svg>
             <input
               type="text"
               placeholder="Search chats..."
-              className={`ml-2 bg-transparent border-none outline-none text-sm w-full placeholder-opacity-70 ${isDarkMode ? "text-gray-200 placeholder-gray-400" : "text-gray-800 placeholder-gray-500"}`}
+              value={chatSearch}
+              onChange={(e) => setChatSearch(e.target.value)}
+              className={`ml-2 bg-transparent border-none outline-none text-sm w-full placeholder-opacity-70 ${
+                isDarkMode
+                  ? "text-gray-200 placeholder-gray-400"
+                  : "text-gray-800 placeholder-gray-500"
+              }`}
             />
+            {chatSearch && (
+              <button
+                onClick={() => setChatSearch("")}
+                aria-label="Clear search"
+                className={`ml-1 flex-shrink-0 rounded-full p-0.5 transition ${
+                  isDarkMode
+                    ? "text-gray-400 hover:text-gray-200"
+                    : "text-gray-500 hover:text-gray-800"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
         {/* Chats List */}
-        <div className="flex-1 overflow-y-auto app-scrollbar">
+        <div className="flex-1 overflow-y-auto app-scrollbar min-w-[256px]">
           {loadingGroups && userGroups.length === 0 ? (
             <div className={`p-4 text-center ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
               <p className="text-sm">Loading chats...</p>
@@ -2201,12 +2286,16 @@ const GroupChat = () => {
                 Refresh
               </button>
             </div>
+          ) : filteredGroups.length === 0 ? (
+            <div className={`p-4 text-center ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+              <p className="text-sm">No chats match &ldquo;{chatSearch}&rdquo;</p>
+            </div>
           ) : (
-            userGroups.map((group) => {
+            filteredGroups.map((group) => {
               const isSelected = groupId === group._id;
               const lastMessage = group.lastMessage || "";
               const lastMessageTime = group.updatedAt || group.createdAt;
-              
+
               // Format timestamp
               const formatTime = (date) => {
                 if (!date) return "";
@@ -2215,7 +2304,7 @@ const GroupChat = () => {
                 const diffMinutes = Math.floor((now - d) / 60000);
                 const diffHours = Math.floor(diffMinutes / 60);
                 const diffDays = Math.floor(diffHours / 24);
-                
+
                 if (diffMinutes < 1) return "Now";
                 if (diffMinutes < 60) return `${diffMinutes}m ago`;
                 if (diffHours < 24) {
@@ -2225,12 +2314,12 @@ const GroupChat = () => {
                 }
                 if (diffDays === 1) return "Yesterday";
                 if (diffDays < 7) return `${diffDays}d ago`;
-                
+
                 const month = (d.getMonth() + 1).toString().padStart(2, "0");
                 const day = d.getDate().toString().padStart(2, "0");
                 return `${month}/${day}`;
               };
-              
+
               return (
                 <button
                   key={group._id}
@@ -2239,7 +2328,7 @@ const GroupChat = () => {
                     if (previousGroupId && previousGroupId !== group._id) {
                       socket.emit("leave_group", { groupId: previousGroupId });
                     }
-                    
+
                     localStorage.setItem("activeGroupId", group._id);
                     setGroupId(group._id);
                     setMessages([]);
@@ -2276,14 +2365,26 @@ const GroupChat = () => {
                     )}
                   </div>
                   <div className="flex-1 min-w-0 text-left">
-                    <p className={`text-sm font-semibold truncate ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>
+                    <p
+                      className={`text-sm font-semibold truncate ${
+                        isDarkMode ? "text-gray-100" : "text-gray-900"
+                      }`}
+                    >
                       {group?.groupName || "Group"}
                     </p>
-                    <p className={`text-xs truncate ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                    <p
+                      className={`text-xs truncate ${
+                        isDarkMode ? "text-gray-400" : "text-gray-600"
+                      }`}
+                    >
                       {lastMessage || (group.members?.length || 0) + " members"}
                     </p>
                   </div>
-                  <p className={`text-xs flex-shrink-0 whitespace-nowrap ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+                  <p
+                    className={`text-xs flex-shrink-0 whitespace-nowrap ${
+                      isDarkMode ? "text-gray-500" : "text-gray-500"
+                    }`}
+                  >
                     {formatTime(lastMessageTime)}
                   </p>
                 </button>
@@ -2581,18 +2682,8 @@ const GroupChat = () => {
           {/* Input Form */}
           <form
             onSubmit={handleSendMessageWithMentions}
-            className="flex items-end space-x-3 relative"
+            className="flex items-center gap-2 relative"
           >
-            {/* File Upload Button */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className={`rounded-lg p-2.5 transition ${isDarkMode ? "bg-gray-700 hover:bg-gray-600 text-gray-300" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
-              disabled={isSending}
-              title="Attach file"
-            >
-              <FaPaperclip size={18} />
-            </button>
             <input
               type="file"
               ref={fileInputRef}
@@ -2601,10 +2692,29 @@ const GroupChat = () => {
               accept=".zip,.rar,.7z,.pdf,.doc,.docx,.jpg,.png"
             />
 
-            {/* Message Input */}
+            {/* Message Input — pill-shaped container with attachment btn inside */}
             <div
-              className={`flex-1 rounded-lg px-4 py-2.5 relative border transition-colors ${isDarkMode ? "bg-gray-700 border-gray-600 focus-within:border-blue-500" : "bg-gray-100 border-gray-300 focus-within:border-blue-500"}`}
+              className={`flex flex-1 items-center gap-2 rounded-full px-3 py-2 relative border transition-colors ${
+                isDarkMode
+                  ? "bg-gray-700 border-gray-600 focus-within:border-blue-500"
+                  : "bg-gray-100 border-gray-300 focus-within:border-blue-500"
+              }`}
             >
+              {/* Attachment Button — inside pill, left side */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition ${
+                  isDarkMode
+                    ? "text-gray-400 hover:text-blue-400 hover:bg-gray-600"
+                    : "text-gray-500 hover:text-blue-600 hover:bg-gray-200"
+                }`}
+                disabled={isSending}
+                title="Attach file"
+              >
+                <FaPaperclip size={16} />
+              </button>
+
               {/* Emoji Picker */}
               <EmojiPicker
                 show={showEmojiPicker}
@@ -2615,7 +2725,7 @@ const GroupChat = () => {
               {isRecording ? (
                 <div
                   ref={recordingControlsRef}
-                  className="flex items-center justify-center gap-3 py-2 px-2"
+                  className="flex flex-1 items-center justify-center gap-3 py-1"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -2681,24 +2791,24 @@ const GroupChat = () => {
                         ? handleResumeVoiceRecording
                         : handlePauseVoiceRecording
                     }
-                    className={`transition ml-1 ${
+                    className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition ${
                       isPaused
                         ? "text-green-500 dark:text-green-400 hover:text-green-600 dark:hover:text-green-300"
                         : "text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300"
                     }`}
                     title={isPaused ? "Resume recording" : "Pause recording"}
                   >
-                    {isPaused ? <FaPlay size={16} /> : <FaPause size={16} />}
+                    {isPaused ? <FaPlay size={15} /> : <FaPause size={15} />}
                   </button>
                   <button
                     type="button"
                     onClick={handleDeleteVoiceRecording}
-                    className="text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition"
+                    className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition"
                     title="Delete recording"
                   >
-                    <FaTrash size={16} />
+                    <FaTrash size={15} />
                   </button>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
                     Press{" "}
                     <kbd className="bg-gray-300 dark:bg-gray-600 px-1.5 py-0.5 rounded text-xs font-mono">
                       Enter
@@ -2708,41 +2818,53 @@ const GroupChat = () => {
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center gap-2">
-                    <input
-                      ref={messageInputRef}
-                      type="text"
-                      value={messageText}
-                      onChange={handleMessageInputChange}
-                      placeholder={
-                        editingMessage
-                          ? "Edit message..."
-                          : "Type a message... @ to mention"
-                      }
-                      className={`flex-1 bg-transparent border-none outline-none ring-0 focus:outline-none focus:ring-0 placeholder-opacity-70 ${isDarkMode ? "text-gray-200 placeholder-gray-400" : "text-gray-800 placeholder-gray-500"}`}
-                      disabled={isSending}
-                    />
+                  <input
+                    ref={messageInputRef}
+                    type="text"
+                    value={messageText}
+                    onChange={handleMessageInputChange}
+                    placeholder={
+                      editingMessage
+                        ? "Edit message..."
+                        : "Type a message... @ to mention"
+                    }
+                    className={`flex-1 bg-transparent border-none outline-none ring-0 focus:outline-none focus:ring-0 placeholder-opacity-70 text-sm py-1 ${
+                      isDarkMode
+                        ? "text-gray-200 placeholder-gray-400"
+                        : "text-gray-800 placeholder-gray-500"
+                    }`}
+                    disabled={isSending}
+                  />
 
-                    {/* Emoji Button */}
-                    <button
-                      type="button"
-                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                      className={`transition ${isDarkMode ? "text-gray-400 hover:text-yellow-400" : "text-gray-500 hover:text-yellow-500"}`}
-                      disabled={isSending}
-                    >
-                      <FaSmile size={20} />
-                    </button>
+                  {/* Emoji Button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                    className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition ${
+                      isDarkMode
+                        ? "text-gray-400 hover:text-yellow-400 hover:bg-gray-600"
+                        : "text-gray-500 hover:text-yellow-500 hover:bg-gray-200"
+                    }`}
+                    disabled={isSending}
+                    title="Emoji"
+                  >
+                    <FaSmile size={17} />
+                  </button>
 
-                    <button
-                      type="button"
-                      onClick={handleStartVoiceRecording}
-                      className={`transition ${isDarkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-blue-500"}`}
-                      disabled={isSending || !!selectedFile || !!editingMessage}
-                      title="Record voice"
-                    >
-                      <FaMicrophone size={18} />
-                    </button>
-                  </div>
+                  {/* Mic Button */}
+                  <button
+                    type="button"
+                    onClick={handleStartVoiceRecording}
+                    className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition ${
+                      isDarkMode
+                        ? "text-gray-400 hover:text-blue-400 hover:bg-gray-600"
+                        : "text-gray-500 hover:text-blue-500 hover:bg-gray-200"
+                    }`}
+                    disabled={isSending || !!selectedFile || !!editingMessage}
+                    title="Record voice"
+                  >
+                    <FaMicrophone size={16} />
+                  </button>
                 </>
               )}
 
@@ -2769,7 +2891,7 @@ const GroupChat = () => {
               )}
             </div>
 
-            {/* Send Button */}
+            {/* Send Button — pill-shaped, same height as input container */}
             <button
               type="submit"
               onClick={(e) => {
@@ -2806,7 +2928,7 @@ const GroupChat = () => {
                   !isRecording) ||
                 isSending
               }
-              className={`p-2.5 rounded-lg transition flex items-center justify-center flex-shrink-0 ${
+              className={`flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full transition ${
                 !messageText.trim() &&
                 !selectedFile &&
                 !editingMessage &&
@@ -2816,15 +2938,15 @@ const GroupChat = () => {
                     ? "bg-gray-600 text-gray-400 cursor-not-allowed"
                     : "bg-gray-200 text-gray-500 cursor-not-allowed"
                   : isDarkMode
-                    ? "bg-blue-600 hover:bg-blue-700 text-white"
-                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                    ? "bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                    : "bg-blue-600 hover:bg-blue-700 text-white shadow-md"
               }`}
               title="Send message"
             >
               {isSending ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
               ) : (
-                <FaPaperPlane size={16} />
+                <FaPaperPlane size={15} />
               )}
             </button>
           </form>
