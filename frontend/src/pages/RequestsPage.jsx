@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { InboxIcon, SendIcon, AlertCircle, Loader, BookOpen, Plus, X, Edit2, Trash2, TrendingUp, Clock, CheckCircle, XCircle, Users } from 'lucide-react';
+import { AlertCircle, Loader, Plus, X, Clock, CheckCircle, XCircle, Info, Bell, Layers, Sparkles, Send } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
-import ReceivedRequestCard from '../components/ReceivedRequestCard';
-import SentRequestCard from '../components/SentRequestCard';
 import SendRequestModal from '../components/SendRequestModal';
 import { detectBackendBaseUrl, getBackendBaseUrl } from '../utils/backendUrl';
 import { getAuthToken } from '../services/authService';
@@ -234,349 +232,428 @@ export default function RequestsPage({ user: currentUser }) {
     ? sentRequests 
     : sentRequests.filter(r => r.status === filterStatus);
 
-  // Stats
-  const receivedStats = {
-    pending: receivedRequests.filter(r => r.status === 'pending').length,
-    accepted: receivedRequests.filter(r => r.status === 'accepted').length,
-    rejected: receivedRequests.filter(r => r.status === 'rejected').length,
+  // Get recently processed requests (accepted/rejected from last 7 days)
+  const allProcessed = [...receivedRequests.filter(r => r.status !== 'pending'), ...sentRequests.filter(r => r.status !== 'pending')];
+  const recentlyProcessed = allProcessed.slice(0, 3);
+
+  // Format time ago
+  const formatTimeAgo = (date) => {
+    if (!date) return '';
+    const now = new Date();
+    const then = new Date(date);
+    const seconds = Math.floor((now - then) / 1000);
+    
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
+    return then.toLocaleDateString();
   };
 
-  const sentStats = {
-    pending: sentRequests.filter(r => r.status === 'pending').length,
-    accepted: sentRequests.filter(r => r.status === 'accepted').length,
-    rejected: sentRequests.filter(r => r.status === 'rejected').length,
+  // Get user avatar initials
+  const getInitials = (firstName, lastName) => {
+    return ((firstName?.[0] || 'U') + (lastName?.[0] || 'U')).toUpperCase();
   };
 
-  const filterButtons = [
-    { value: 'pending', label: 'Pending' },
-    { value: 'accepted', label: 'Accepted' },
-    { value: 'rejected', label: 'Rejected' },
-    { value: 'all', label: 'All' }
-  ];
+  // Get avatar color based on name
+  const getAvatarColor = (name) => {
+    const colors = ['from-indigo-500 to-purple-500', 'from-blue-500 to-cyan-500', 'from-emerald-500 to-teal-500', 'from-rose-500 to-pink-500', 'from-amber-500 to-orange-500'];
+    const hash = (name || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colors[hash % colors.length];
+  };
+
+  const getAccentClasses = (seedSource) => {
+    const seed = `${seedSource || ''}`.length % 4;
+    const variants = [
+      {
+        bar: 'from-sky-400 via-cyan-400 to-indigo-500',
+        icon: isDarkMode ? 'bg-sky-500/15 text-sky-300' : 'bg-sky-100 text-sky-700',
+        chip: isDarkMode ? 'bg-sky-500/15 text-sky-200' : 'bg-sky-100 text-sky-700',
+      },
+      {
+        bar: 'from-violet-400 via-fuchsia-400 to-rose-500',
+        icon: isDarkMode ? 'bg-violet-500/15 text-violet-300' : 'bg-violet-100 text-violet-700',
+        chip: isDarkMode ? 'bg-violet-500/15 text-violet-200' : 'bg-violet-100 text-violet-700',
+      },
+      {
+        bar: 'from-emerald-400 via-teal-400 to-cyan-500',
+        icon: isDarkMode ? 'bg-emerald-500/15 text-emerald-300' : 'bg-emerald-100 text-emerald-700',
+        chip: isDarkMode ? 'bg-emerald-500/15 text-emerald-200' : 'bg-emerald-100 text-emerald-700',
+      },
+      {
+        bar: 'from-amber-400 via-orange-400 to-rose-500',
+        icon: isDarkMode ? 'bg-amber-500/15 text-amber-300' : 'bg-amber-100 text-amber-700',
+        chip: isDarkMode ? 'bg-amber-500/15 text-amber-200' : 'bg-amber-100 text-amber-700',
+      },
+    ];
+
+    return variants[seed];
+  };
+
+  const getStatusChipClass = (status) => {
+    if (status === 'accepted') {
+      return isDarkMode ? 'bg-emerald-500/15 text-emerald-300' : 'bg-emerald-100 text-emerald-700';
+    }
+    if (status === 'rejected') {
+      return isDarkMode ? 'bg-rose-500/15 text-rose-300' : 'bg-rose-100 text-rose-700';
+    }
+    return isDarkMode ? 'bg-indigo-500/15 text-indigo-300' : 'bg-indigo-100 text-indigo-700';
+  };
+
+  const activeTabMeta = {
+    received: {
+      title: 'Received Requests',
+      count: filteredReceived.length,
+      empty: 'No requests received yet.',
+    },
+    sent: {
+      title: 'Sent Requests',
+      count: filteredSent.length,
+      empty: 'No requests sent yet.',
+    },
+    browse: {
+      title: 'Browse Groups',
+      count: groups.length,
+      empty: 'No groups available right now.',
+    },
+  };
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-gradient-to-br from-slate-950 via-slate-950 to-slate-900' : 'bg-gradient-to-br from-slate-50 to-slate-100'}`}>
-      {/* Header */}
-      <div className={`px-8 pt-8 pb-6 border-b ${isDarkMode ? 'border-slate-800/50' : 'border-slate-200'}`}>
-        <h1 className={`text-3xl font-semibold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-950'} mb-2`}>Requests & Invitations</h1>
-        <p className={`text-sm ${isDarkMode ? 'text-slate-500' : 'text-slate-600'}`}>Manage your group join requests and invitations</p>
-      </div>
+    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950' : 'bg-slate-50'}`}>
+      <div className="max-w-7xl mx-auto relative p-8">
+        <div className="pointer-events-none absolute -top-10 left-8 h-44 w-44 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute top-16 right-16 h-56 w-56 rounded-full bg-indigo-500/10 blur-3xl" />
 
-      <div className="px-8 py-8">
-        {/* Minimal Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-          {/* Total Requests */}
-          <div className={`border rounded-lg p-4 transition-all ${isDarkMode ? 'bg-slate-800/30 border-slate-700/50 hover:border-slate-700' : 'bg-white/50 border-slate-200/50 hover:border-slate-300'}`}>
-            <p className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-500'} mb-2`}>Total</p>
-            <p className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{sentRequests.length + receivedRequests.length}</p>
-          </div>
-
-          {/* Pending */}
-          <div className={`border rounded-lg p-4 transition-all ${isDarkMode ? 'bg-slate-800/30 border-slate-700/50 hover:border-slate-700' : 'bg-white/50 border-slate-200/50 hover:border-slate-300'}`}>
-            <p className={`text-xs font-medium uppercase tracking-wider text-amber-600 mb-2`}>Pending</p>
-            <p className={`text-2xl font-semibold text-amber-500`}>{sentStats.pending + receivedStats.pending}</p>
-          </div>
-
-          {/* Accepted */}
-          <div className={`border rounded-lg p-4 transition-all ${isDarkMode ? 'bg-slate-800/30 border-slate-700/50 hover:border-slate-700' : 'bg-white/50 border-slate-200/50 hover:border-slate-300'}`}>
-            <p className={`text-xs font-medium uppercase tracking-wider text-emerald-600 mb-2`}>Accepted</p>
-            <p className={`text-2xl font-semibold text-emerald-500`}>{sentStats.accepted + receivedStats.accepted}</p>
-          </div>
-
-          {/* Groups */}
-          <div className={`border rounded-lg p-4 transition-all ${isDarkMode ? 'bg-slate-800/30 border-slate-700/50 hover:border-slate-700' : 'bg-white/50 border-slate-200/50 hover:border-slate-300'}`}>
-            <p className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-500'} mb-2`}>Groups</p>
-            <p className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{groups.length}</p>
-          </div>
-        </div>
-
-        {/* Error Alert */}
-        {error && (
-          <div className={`mb-8 p-4 rounded-lg flex items-start gap-3 ${
-            isDarkMode 
-              ? 'bg-red-900/20 border border-red-800/50' 
-              : 'bg-red-50 border border-red-200'
-          }`}>
-            <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className={`font-semibold ${isDarkMode ? 'text-red-200' : 'text-red-800'}`}>
-                Error
-              </p>
-              <p className={isDarkMode ? 'text-red-300' : 'text-red-700'}>
-                {error}
+        <div className={`relative overflow-hidden rounded-[28px] border mb-8 ${isDarkMode ? 'border-slate-800 bg-slate-950/65' : 'border-slate-200 bg-white/85'}`}>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.14),transparent_35%),radial-gradient(circle_at_top_right,rgba(99,102,241,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.08),transparent_40%)]" />
+          <div className="relative p-6 md:p-8 lg:p-10 flex flex-col gap-6">
+            <div className="max-w-2xl">
+              <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] ${isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+                <Sparkles className="h-3.5 w-3.5" />
+                Collaboration hub
+              </div>
+              <h1 className={`mt-4 text-4xl md:text-5xl font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>
+                Requests & Invites
+              </h1>
+              <p className={`mt-3 max-w-xl text-base md:text-lg ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                Manage received requests, sent invites, and discover groups with the same visual language as your Groups dashboard.
               </p>
             </div>
-            <button
-              onClick={() => setError(null)}
-              className={`ml-auto px-3 py-1 rounded text-sm font-semibold ${
-                isDarkMode 
-                  ? 'text-red-200 hover:bg-red-900/30' 
-                  : 'text-red-700 hover:bg-red-100'
-              }`}
-            >
-              <X size={18} />
-            </button>
-          </div>
-        )}
 
-        {/* Minimal Tab Navigation */}
-        <div className="mb-8">
-          <div className={`flex gap-1 border-b ${isDarkMode ? 'border-slate-800/50' : 'border-slate-200'}`}>
-            {[
-              { id: 'received', label: 'Received', count: receivedRequests.length },
-              { id: 'sent', label: 'Sent', count: sentRequests.length },
-              { id: 'browse', label: 'Browse', count: groups.length }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id);
-                  setFilterStatus('all');
-                }}
-                className={`px-4 py-3 text-sm font-medium transition-all border-b-2 -mb-px ${
-                  activeTab === tab.id
-                    ? isDarkMode
-                      ? 'border-slate-300 text-slate-200'
-                      : 'border-slate-900 text-slate-900'
-                    : isDarkMode
-                    ? 'border-transparent text-slate-500 hover:text-slate-400'
-                    : 'border-transparent text-slate-500 hover:text-slate-600'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  {tab.label}
-                  {tab.count > 0 && (
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+              <div className={`rounded-2xl border px-4 py-3 ${isDarkMode ? 'border-slate-800 bg-slate-900/70' : 'border-slate-200 bg-white'}`}>
+                <div className={`text-[11px] uppercase tracking-[0.18em] ${isDarkMode ? 'text-slate-500' : 'text-slate-500'}`}>Received</div>
+                <div className={`mt-1 text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>{receivedRequests.length}</div>
+              </div>
+              <div className={`rounded-2xl border px-4 py-3 ${isDarkMode ? 'border-slate-800 bg-slate-900/70' : 'border-slate-200 bg-white'}`}>
+                <div className={`text-[11px] uppercase tracking-[0.18em] ${isDarkMode ? 'text-slate-500' : 'text-slate-500'}`}>Sent</div>
+                <div className={`mt-1 text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>{sentRequests.length}</div>
+              </div>
+              <div className={`rounded-2xl border px-4 py-3 ${isDarkMode ? 'border-slate-800 bg-slate-900/70' : 'border-slate-200 bg-white'}`}>
+                <div className={`text-[11px] uppercase tracking-[0.18em] ${isDarkMode ? 'text-slate-500' : 'text-slate-500'}`}>Groups</div>
+                <div className={`mt-1 text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>{groups.length}</div>
+              </div>
+              <div className={`rounded-2xl border px-4 py-3 ${isDarkMode ? 'border-slate-800 bg-slate-900/70' : 'border-slate-200 bg-white'}`}>
+                <div className={`text-[11px] uppercase tracking-[0.18em] ${isDarkMode ? 'text-slate-500' : 'text-slate-500'}`}>Processed</div>
+                <div className={`mt-1 text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>{recentlyProcessed.length}</div>
+              </div>
+            </div>
+
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+              <div className={`inline-flex rounded-2xl border p-1.5 ${isDarkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-white'}`}>
+                {[
+                  { id: 'received', label: 'Received' },
+                  { id: 'sent', label: 'Sent' },
+                  { id: 'browse', label: 'Browse' },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      setFilterStatus('all');
+                    }}
+                    className={`min-w-[88px] rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
                       activeTab === tab.id
-                        ? isDarkMode ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-900'
-                        : isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'
-                    }`}>
-                      {tab.count}
-                    </span>
-                  )}
-                </span>
-              </button>
-            ))}
+                        ? isDarkMode
+                          ? 'bg-slate-800 text-slate-100 shadow-inner'
+                          : 'bg-slate-100 text-slate-900 shadow-sm'
+                        : isDarkMode
+                        ? 'text-slate-400 hover:text-slate-200'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-medium ${isDarkMode ? 'bg-slate-900 text-slate-300 border border-slate-800' : 'bg-white text-slate-600 border border-slate-200'}`}>
+                <Info size={14} className={isDarkMode ? 'text-violet-300' : 'text-violet-600'} />
+                Duplicate requests to the same entity are automatically merged.
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Minimal Filter Buttons */}
-        {activeTab !== 'browse' && (
-          <div className="mb-6 flex gap-2">
-            {filterButtons.map(btn => (
-              <button
-                key={btn.value}
-                onClick={() => setFilterStatus(btn.value)}
-                className={`px-3 py-2 text-xs font-medium rounded-md transition-all ${
-                  filterStatus === btn.value
-                    ? isDarkMode
-                      ? 'bg-slate-700 text-slate-100'
-                      : 'bg-slate-900 text-white'
-                    : isDarkMode
-                    ? 'bg-slate-800/50 text-slate-400 hover:bg-slate-800'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {btn.label}
+        <div className={`rounded-2xl border shadow-[0_24px_80px_rgba(0,0,0,0.18)] overflow-hidden ${isDarkMode ? 'border-slate-800 bg-slate-950/60' : 'border-slate-200 bg-white'}`}>
+          <div className={`px-6 md:px-8 py-4 border-b flex items-center justify-between gap-4 ${isDarkMode ? 'border-slate-800 bg-slate-900/40' : 'border-slate-100 bg-slate-50'}`}>
+            <h3 className={`text-base md:text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>
+              {activeTabMeta[activeTab].title}
+            </h3>
+            <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+              <Layers className="h-3.5 w-3.5" />
+              {activeTabMeta[activeTab].count} items
+            </div>
+          </div>
+
+          <div className="p-5 md:p-6 space-y-4">
+          {error && (
+            <div className={`rounded-xl border px-4 py-3 flex items-start gap-3 ${isDarkMode ? 'bg-rose-950/30 border-rose-900/60' : 'bg-rose-50 border-rose-200'}`}>
+              <AlertCircle size={18} className="text-rose-500 mt-0.5" />
+              <div className="flex-1">
+                <p className={`text-sm font-semibold ${isDarkMode ? 'text-rose-200' : 'text-rose-700'}`}>Error</p>
+                <p className={`text-sm ${isDarkMode ? 'text-rose-300' : 'text-rose-600'}`}>{error}</p>
+              </div>
+              <button onClick={() => setError(null)} className={`${isDarkMode ? 'text-rose-300' : 'text-rose-600'}`}>
+                <X size={18} />
               </button>
-            ))}
-          </div>
-        )}
+            </div>
+          )}
 
-        {/* Content Sections */}
-        {loading ? (
-          <div className="flex justify-center items-center py-20">
-            <Loader className="animate-spin text-blue-500" size={32} />
-          </div>
-        ) : (
-          <>
-            {/* Received Requests */}
-            {activeTab === 'received' && (
-              <div>
-                <div className="mb-6">
-                  <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                    Received Requests
-                  </h2>
-                </div>
-                {filteredReceived.length === 0 ? (
-                  <div className={`text-center py-16 rounded-lg border-2 border-dashed ${
-                    isDarkMode 
-                      ? 'border-slate-700 bg-slate-800/30' 
-                      : 'border-slate-300 bg-slate-50'
-                  }`}>
-                    <InboxIcon size={48} className={`mx-auto mb-4 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`} />
-                    <p className={`text-lg font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                      No requests received yet
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {filteredReceived.map(request => (
-                      <ReceivedRequestCard
+          {loading ? (
+            <div className="flex justify-center items-center py-20">
+              <Loader className="animate-spin text-blue-500" size={32} />
+            </div>
+          ) : (
+            <>
+              {activeTab === 'received' && (
+                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                  {filteredReceived.length === 0 ? (
+                    <div className={`md:col-span-2 xl:col-span-3 rounded-2xl border border-dashed px-6 py-16 text-center ${isDarkMode ? 'border-slate-800 bg-slate-900/40' : 'border-slate-200 bg-white'}`}>
+                      <Bell size={42} className={`mx-auto mb-4 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`} />
+                      <p className={`text-base font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{activeTabMeta.received.empty}</p>
+                    </div>
+                  ) : (
+                    filteredReceived.map((request) => (
+                      <article
                         key={request._id}
-                        request={request}
-                        onAccept={handleAccept}
-                        onReject={handleReject}
-                        isDarkMode={isDarkMode}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                        className={`group relative overflow-hidden rounded-[24px] border transition-all duration-300 ${isDarkMode ? 'border-slate-800 bg-slate-900/70 hover:border-slate-700 hover:shadow-[0_20px_60px_rgba(0,0,0,0.35)]' : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-[0_20px_60px_rgba(15,23,42,0.12)]'}`}
+                      >
+                        <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${getAccentClasses(request.groupId?.title || request._id).bar} opacity-80`} />
+                        <div className="p-5 md:p-6 h-full flex flex-col">
+                          <div className="flex items-start gap-3">
+                            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${getAccentClasses(request.groupId?.title || request._id).icon}`}>
+                              <Bell className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className={`text-lg font-bold leading-tight truncate ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>
+                                {request.groupId?.title || 'Group Invitation'}
+                              </h4>
+                              <div className={`mt-2 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${getStatusChipClass(request.status)}`}>
+                                {request.status || 'pending'}
+                              </div>
+                            </div>
+                          </div>
 
-            {/* Sent Requests */}
-            {activeTab === 'sent' && (
-              <div>
-                <div className="mb-6">
-                  <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                    Sent Requests
-                  </h2>
+                          <p className={`mt-4 text-sm leading-6 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                            Invited by {request.fromUser?.firstName || 'Unknown User'} • {formatTimeAgo(request.createdAt)}
+                          </p>
+
+                          <div className="mt-auto pt-5 flex items-center justify-between gap-3">
+                            <button
+                              onClick={() => handleReject(request._id)}
+                              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all ${isDarkMode ? 'border-rose-800 text-rose-300 hover:bg-rose-950/40' : 'border-rose-200 text-rose-600 hover:bg-rose-50'}`}
+                            >
+                              <XCircle size={16} /> Reject
+                            </button>
+                            <button
+                              onClick={() => handleAccept(request._id)}
+                              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all ${isDarkMode ? 'bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}`}
+                            >
+                              <CheckCircle size={16} /> Accept
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    ))
+                  )}
                 </div>
-                {filteredSent.length === 0 ? (
-                  <div className={`text-center py-16 rounded-lg border-2 border-dashed ${
-                    isDarkMode 
-                      ? 'border-slate-700 bg-slate-800/30' 
-                      : 'border-slate-300 bg-slate-50'
-                  }`}>
-                    <SendIcon size={48} className={`mx-auto mb-4 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`} />
-                    <p className={`text-lg font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                      No requests sent yet
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {filteredSent.map(request => (
-                      <SentRequestCard
+              )}
+
+              {activeTab === 'sent' && (
+                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                  {filteredSent.length === 0 ? (
+                    <div className={`md:col-span-2 xl:col-span-3 rounded-2xl border border-dashed px-6 py-16 text-center ${isDarkMode ? 'border-slate-800 bg-slate-900/40' : 'border-slate-200 bg-white'}`}>
+                      <Bell size={42} className={`mx-auto mb-4 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`} />
+                      <p className={`text-base font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{activeTabMeta.sent.empty}</p>
+                    </div>
+                  ) : (
+                    filteredSent.map((request) => (
+                      <article
                         key={request._id}
-                        request={request}
-                        onEdit={() => handleEditMessage(request._id)}
-                        onDelete={handleCancel}
-                        editingId={editingRequestId}
-                        editMessage={editMessage}
-                        onEditChange={(e) => setEditMessage(e.target.value)}
-                        onEditSubmit={handleUpdateMessage}
-                        isDarkMode={isDarkMode}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                        className={`group relative overflow-hidden rounded-[24px] border transition-all duration-300 ${isDarkMode ? 'border-slate-800 bg-slate-900/70 hover:border-slate-700 hover:shadow-[0_20px_60px_rgba(0,0,0,0.35)]' : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-[0_20px_60px_rgba(15,23,42,0.12)]'}`}
+                      >
+                        <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${getAccentClasses(request.groupId?.title || request._id).bar} opacity-80`} />
+                        <div className="p-5 md:p-6 h-full flex flex-col">
+                          <div className="flex items-start gap-3">
+                            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${getAccentClasses(request.groupId?.title || request._id).icon}`}>
+                              <Send className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className={`text-lg font-bold leading-tight truncate ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>
+                                {request.groupId?.title || 'Unknown Group'}
+                              </h4>
+                              <div className={`mt-2 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${getStatusChipClass(request.status)}`}>
+                                {request.status || 'pending'}
+                              </div>
+                            </div>
+                          </div>
 
-            {/* Browse Groups */}
-            {activeTab === 'browse' && (
-              <div>
-                <div className="mb-6">
-                  <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                    Available Groups
-                  </h2>
+                          <p className={`mt-4 line-clamp-2 text-sm leading-6 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                            {request.message || 'Join request'} • {formatTimeAgo(request.createdAt)}
+                          </p>
+
+                          <div className="mt-auto pt-5 flex items-center justify-between gap-3">
+                            <button
+                              onClick={() => handleCancel(request._id)}
+                              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all ${isDarkMode ? 'border-rose-800 text-rose-300 hover:bg-rose-950/40' : 'border-rose-200 text-rose-600 hover:bg-rose-50'}`}
+                            >
+                              <XCircle size={16} /> Cancel
+                            </button>
+                            <button
+                              onClick={() => handleEditMessage(request._id)}
+                              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all ${isDarkMode ? 'bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}`}
+                            >
+                              <Plus size={16} /> Connect
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    ))
+                  )}
                 </div>
-                {groups.length === 0 ? (
-                  <div className={`text-center py-16 rounded-lg border-2 border-dashed ${
-                    isDarkMode 
-                      ? 'border-slate-700 bg-slate-800/30' 
-                      : 'border-slate-300 bg-slate-50'
-                  }`}>
-                    <BookOpen size={48} className={`mx-auto mb-4 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`} />
-                    <p className={`text-lg font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                      No groups available
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {groups.map(group => {
+              )}
+
+              {activeTab === 'browse' && (
+                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                  {groups.length === 0 ? (
+                    <div className={`md:col-span-2 xl:col-span-3 rounded-2xl border border-dashed px-6 py-16 text-center ${isDarkMode ? 'border-slate-800 bg-slate-900/40' : 'border-slate-200 bg-white'}`}>
+                      <Bell size={42} className={`mx-auto mb-4 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`} />
+                      <p className={`text-base font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{activeTabMeta.browse.empty}</p>
+                    </div>
+                  ) : (
+                    groups.map((group) => {
                       const userId = localStorage.getItem('userId');
-                      const alreadySentRequest = sentRequests.some(
-                        r => r.groupId?._id === group._id && r.status === 'pending'
+                      const alreadySentRequest = sentRequests.some((r) => r.groupId?._id === group._id && r.status === 'pending');
+                      const alreadyMember = group.members?.some((memberId) => memberId === userId || memberId._id === userId);
+
+                      return (
+                        <article
+                          key={group._id}
+                          className={`group relative overflow-hidden rounded-[24px] border transition-all duration-300 ${isDarkMode ? 'border-slate-800 bg-slate-900/70 hover:border-slate-700 hover:shadow-[0_20px_60px_rgba(0,0,0,0.35)]' : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-[0_20px_60px_rgba(15,23,42,0.12)]'}`}
+                        >
+                          <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${getAccentClasses(group.title).bar} opacity-80`} />
+                          <div className="p-5 md:p-6 h-full flex flex-col">
+                            <div className="flex items-start gap-3">
+                              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${getAccentClasses(group.title).icon}`}>
+                                <Layers className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <h4 className={`text-lg font-bold leading-tight truncate ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>
+                                  {group.title}
+                                </h4>
+                                <div className={`mt-2 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${getAccentClasses(group.title).chip}`}>
+                                  {group.members?.length || 0}/{group.memberLimit || 0} members
+                                </div>
+                              </div>
+                            </div>
+
+                            <p className={`mt-4 line-clamp-3 text-sm leading-6 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                              {group.description || 'No description provided.'}
+                            </p>
+
+                            <div className="mt-auto pt-5">
+                              <button
+                                onClick={() => {
+                                  setSelectedGroupForRequest(group._id);
+                                  setShowSendModal(true);
+                                }}
+                                disabled={alreadySentRequest || alreadyMember}
+                                className={`inline-flex w-full justify-center items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all ${alreadySentRequest || alreadyMember ? (isDarkMode ? 'cursor-not-allowed bg-slate-800 text-slate-500' : 'cursor-not-allowed bg-slate-100 text-slate-400') : (isDarkMode ? 'bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200')}`}
+                              >
+                                <Plus size={16} />
+                                {alreadyMember ? 'Member' : alreadySentRequest ? 'Sent' : 'Connect'}
+                              </button>
+                            </div>
+                          </div>
+                        </article>
                       );
-                      const alreadyMember = group.members?.some(memberId => memberId === userId || memberId._id === userId);
-                      
+                    })
+                  )}
+                </div>
+              )}
+
+              {recentlyProcessed.length > 0 && (
+                <div className="pt-8">
+                  <h2 className={`mb-4 text-sm font-semibold uppercase tracking-[0.16em] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Recently Processed
+                  </h2>
+                  <div className="space-y-3">
+                    {recentlyProcessed.map((request) => {
+                      const displayName = request.groupId?.title || `${request.fromUser?.firstName || 'Unknown'} ${request.fromUser?.lastName || 'User'}`.trim();
+                      const avatarLabel = request.groupId?.title?.[0] || getInitials(request.fromUser?.firstName, request.fromUser?.lastName);
+
                       return (
                         <div
-                          key={group._id}
-                          className={`border rounded-lg p-4 transition-all ${
-                            isDarkMode
-                              ? 'bg-slate-800/30 border-slate-700/50 hover:border-slate-700'
-                              : 'bg-white/50 border-slate-200/50 hover:border-slate-300'
-                          }`}
+                          key={request._id}
+                          className={`flex items-center justify-between gap-4 rounded-xl border px-5 py-4 ${isDarkMode ? 'bg-black/45 border-slate-900' : 'bg-slate-900 border-slate-800'}`}
                         >
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1 min-w-0">
-                              <h3 className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'} truncate`}>
-                                {group.title}
-                              </h3>
-                              <p className={`text-xs mt-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-500'} truncate`}>
-                                {group.description}
+                          <div className="flex min-w-0 items-center gap-4">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-800 text-sm font-semibold text-slate-200">
+                              {avatarLabel}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h3 className="truncate text-[15px] font-semibold text-slate-100">
+                                  {displayName}
+                                </h3>
+                                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${request.status === 'accepted' ? 'bg-emerald-950 text-emerald-300' : 'bg-rose-950 text-rose-300'}`}>
+                                  {request.status?.toUpperCase()}
+                                </span>
+                              </div>
+                              <p className="mt-1 truncate text-sm text-slate-400">
+                                {request.status === 'accepted' ? 'You joined this project' : 'Request was declined'} • {formatTimeAgo(request.updatedAt || request.createdAt)}
                               </p>
                             </div>
                           </div>
-                          
-                          <div className={`mb-3 text-xs space-y-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                            <div className="flex items-center justify-between">
-                              <span>Members:</span>
-                              <span className="font-medium">{group.members?.length || 0}/{group.memberLimit}</span>
-                            </div>
-                            {group.requiredSkills && group.requiredSkills.length > 0 && (
-                              <div className="flex flex-wrap gap-1 pt-2">
-                                {group.requiredSkills.slice(0, 3).map(skill => (
-                                  <span
-                                    key={skill}
-                                    className={`px-2 py-1 rounded text-xs font-medium ${
-                                      isDarkMode
-                                        ? 'bg-slate-700/50 text-slate-300'
-                                        : 'bg-slate-200 text-slate-700'
-                                    }`}
-                                  >
-                                    {skill}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
 
-                          <button
-                            onClick={() => {
-                              setSelectedGroupForRequest(group._id);
-                              setShowSendModal(true);
-                            }}
-                            disabled={alreadySentRequest || alreadyMember}
-                            className={`w-full px-3 py-2 rounded text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
-                              alreadySentRequest || alreadyMember
-                                ? isDarkMode
-                                  ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                                  : 'bg-slate-200 text-slate-500 cursor-not-allowed'
-                                : isDarkMode
-                                ? 'bg-slate-700 hover:bg-slate-600 text-slate-200'
-                                : 'bg-slate-900 hover:bg-slate-800 text-white'
-                            }`}
-                          >
-                            <Plus size={14} />
-                            {alreadyMember ? 'Member' : alreadySentRequest ? 'Sent' : 'Join'}
+                          <button className="inline-flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-white">
+                            View Project
+                            <span aria-hidden="true">→</span>
                           </button>
                         </div>
                       );
                     })}
                   </div>
-                )}
-              </div>
-            )}
-          </>
+                </div>
+              )}
+            </>
+          )}
+          </div>
+        </div>
+
+        {showSendModal && (
+          <SendRequestModal
+            groupId={selectedGroupForRequest}
+            onSend={(message) => handleSendRequest(selectedGroupForRequest, message)}
+            onClose={() => {
+              setShowSendModal(false);
+              setSelectedGroupForRequest(null);
+            }}
+            isDarkMode={isDarkMode}
+          />
         )}
       </div>
-
-      {/* Send Request Modal */}
-      {showSendModal && (
-        <SendRequestModal
-          groupId={selectedGroupForRequest}
-          onSend={(message) => handleSendRequest(selectedGroupForRequest, message)}
-          onClose={() => {
-            setShowSendModal(false);
-            setSelectedGroupForRequest(null);
-          }}
-          isDarkMode={isDarkMode}
-        />
-      )}
     </div>
   );
 }

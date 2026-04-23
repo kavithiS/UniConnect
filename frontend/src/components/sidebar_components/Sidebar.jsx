@@ -9,6 +9,7 @@ const Sidebar = ({ isOpen = true, onToggle }) => {
     { name: "My Profile", icon: "👤", path: "/dashboard/profile" },
     { name: "Group Chat", icon: "💬", path: "/dashboard/chat" },
     { name: "My Groups", icon: "👥", path: "/dashboard/groups" },
+    { name: "Requests & Invites", icon: "📬", path: "/dashboard/requests" },
   ];
 
   const handleLogout = () => {
