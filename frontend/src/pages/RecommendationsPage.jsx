@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { groupAPI, userAPI, joinRequestAPI } from '../api/api';
+import { groupAPI, userAPI, joinRequestAPI, recommendationAPI } from '../api/api';
 import { Search, Loader, X, AlertCircle, Users, CheckCircle, Clock, XCircle, Zap, ChevronRight, UserCircle } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { fetchCurrentUser, getAuthToken } from '../services/authService';
 import {
   calculateAIConfidence, calculateLearningPath, generateAIInsight,
   calculateTrendingScore, estimateSimilarStudents, calculatePercentileRanking,
@@ -18,8 +19,56 @@ const computeMatch = (userSkills = [], requiredSkills = []) => {
   return { matchScore: Math.round((matched.length / requiredSkills.length) * 100), matchedSkills: matched, missingSkills: missing };
 };
 
+const normalizeSkillList = (skills = []) => {
+  if (!Array.isArray(skills)) return [];
+  return [...new Set(skills.map((skill) => String(skill || '').trim()).filter(Boolean))];
+};
+
+const isTestOrDummyUser = (user) => {
+  const blockedExactNames = new Set([
+    'john michael smith',
+    'emma marie johnson',
+    'michael james brown',
+    'sarah elizabeth davis',
+  ]);
+
+  const fullName = String(user?.fullName || user?.name || '').trim().toLowerCase();
+  if (blockedExactNames.has(fullName)) {
+    return true;
+  }
+
+  const text = [
+    user?._id,
+    user?.userId,
+    user?.name,
+    user?.fullName,
+    user?.email,
+    user?.registrationNumber,
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).toLowerCase())
+    .join(' ');
+
+  const blockedKeywords = [
+    'test',
+    'dummy',
+    'demo',
+    'mock',
+    'sample',
+    'seed',
+    'fake',
+    'temp',
+    'qa',
+  ];
+
+  return blockedKeywords.some((keyword) => text.includes(keyword));
+};
+
 const enrich = (group, userSkills = []) => {
-  const { matchScore, matchedSkills, missingSkills } = computeMatch(userSkills, group.requiredSkills);
+  const fallback = computeMatch(userSkills, group.requiredSkills);
+  const matchScore = typeof group.matchScore === 'number' ? group.matchScore : fallback.matchScore;
+  const matchedSkills = Array.isArray(group.matchedSkills) ? group.matchedSkills : fallback.matchedSkills;
+  const missingSkills = Array.isArray(group.missingSkills) ? group.missingSkills : fallback.missingSkills;
   const g = { ...group, matchScore, matchedSkills, missingSkills };
   const trending = calculateTrendingScore(g);
   return {
@@ -172,18 +221,32 @@ export default function RecommendationsPage() {
   const { isDarkMode } = useTheme();
 
   const [userId, setUserId]         = useState(localStorage.getItem('userId') || '');
+  const [users, setUsers]           = useState([]);
   const [userSkills, setUserSkills] = useState([]);
   const [allGroups, setAllGroups]   = useState([]);
   const [enriched, setEnriched]     = useState([]);
   const [loading, setLoading]       = useState(false);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [error, setError]           = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy]         = useState('match');
   const [requestMap, setRequestMap] = useState({});
 
-  const fetchGroups = useCallback(async () => {
+  const getUserLabel = (user) => {
+    if (!user) return 'Unknown user';
+    const name = user.fullName || user.name || user.email || 'User';
+    return `${name}`;
+  };
+
+  const fetchGroups = useCallback(async (uid) => {
     setLoading(true);
     try {
+      if (uid?.trim()) {
+        const rec = await recommendationAPI.getGroupsForUser(uid.trim(), 0);
+        const recommended = rec.data?.data || [];
+        if (recommended.length) return recommended;
+      }
+
       const res = await groupAPI.getAll();
       const groups = res.data?.data || res.data || [];
       return groups.length ? groups : MOCK;
@@ -192,12 +255,33 @@ export default function RecommendationsPage() {
 
   const fetchUserSkills = useCallback(async (uid) => {
     if (!uid?.trim()) return [];
+
     try {
       const res = await userAPI.getById(uid.trim());
-      const skills = res.data?.data?.skills || res.data?.skills || [];
-      setUserSkills(skills);
-      return skills;
-    } catch { setUserSkills([]); return []; }
+      const skills = normalizeSkillList(res.data?.data?.skills || res.data?.skills || []);
+      if (skills.length) {
+        setUserSkills(skills);
+        return skills;
+      }
+    } catch {
+      // fallback below
+    }
+
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        setUserSkills([]);
+        return [];
+      }
+
+      const me = await fetchCurrentUser(token);
+      const fallbackSkills = normalizeSkillList(me?.skills || []);
+      setUserSkills(fallbackSkills);
+      return fallbackSkills;
+    } catch {
+      setUserSkills([]);
+      return [];
+    }
   }, []);
 
   const fetchRequests = useCallback(async (uid) => {
@@ -214,22 +298,77 @@ export default function RecommendationsPage() {
     } catch { setRequestMap({}); }
   }, []);
 
+  const fetchUsers = useCallback(async () => {
+    setUsersLoading(true);
+    try {
+      const res = await userAPI.getAll();
+      const list = res.data?.data || res.data || [];
+      const safeList = (Array.isArray(list) ? list : []).filter((user) => !isTestOrDummyUser(user));
+      setUsers(safeList);
+      return safeList;
+    } catch {
+      setUsers([]);
+      return [];
+    } finally {
+      setUsersLoading(false);
+    }
+  }, []);
+
+  const loadDataForUser = useCallback(async (uid) => {
+    const groups = await fetchGroups(uid);
+    setAllGroups(groups);
+
+    if (uid) {
+      await fetchUserSkills(uid);
+      fetchRequests(uid);
+    } else {
+      setUserSkills([]);
+      setRequestMap({});
+    }
+  }, [fetchGroups, fetchRequests, fetchUserSkills]);
+
   useEffect(() => { if (allGroups.length) setEnriched(allGroups.map(g => enrich(g, userSkills))); }, [allGroups, userSkills]);
 
   useEffect(() => {
-    const uid = localStorage.getItem('userId') || '';
-    fetchGroups().then(setAllGroups);
-    if (uid) { fetchUserSkills(uid); fetchRequests(uid); }
-  }, []);
+    const bootstrapRecommendations = async () => {
+      let uid = (localStorage.getItem('userId') || '').trim();
+      const userList = await fetchUsers();
 
-  const handleLoad = async () => {
-    const uid = userId.trim();
+      if (!uid) {
+        try {
+          const token = getAuthToken();
+          if (token) {
+            const me = await fetchCurrentUser(token);
+            uid = (me?._id || '').toString();
+            if (uid) {
+              localStorage.setItem('userId', uid);
+              setUserId(uid);
+            }
+          }
+        } catch {
+          uid = '';
+        }
+      }
+
+      if (!uid && userList.length > 0) {
+        uid = String(userList[0]?._id || '').trim();
+        if (uid) {
+          localStorage.setItem('userId', uid);
+          setUserId(uid);
+        }
+      }
+
+      await loadDataForUser(uid);
+    };
+
+    bootstrapRecommendations();
+  }, [fetchUsers, loadDataForUser]);
+
+  const handleUserChange = async (nextUserId) => {
+    const uid = String(nextUserId || '').trim();
+    setUserId(uid);
     localStorage.setItem('userId', uid);
-    const groups = await fetchGroups();
-    setAllGroups(groups);
-    const skills = await fetchUserSkills(uid);
-    setUserSkills(skills);
-    fetchRequests(uid);
+    await loadDataForUser(uid);
   };
 
   const handleRequest = async (groupId) => {
@@ -271,7 +410,7 @@ export default function RecommendationsPage() {
           <div className="relative">
             <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] mb-4 ${isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
               <Zap className="h-3.5 w-3.5" />
-              AI Powered Matching
+              Skill Based Matching
             </div>
             <h1 className={`text-4xl md:text-5xl font-black tracking-tight mb-3 ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>Recommendations</h1>
             <p className={`max-w-xl text-base md:text-lg ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>Discover groups perfectly matched to your skills and learning goals.</p>
@@ -304,19 +443,28 @@ export default function RecommendationsPage() {
 
       {/* ── Tools Row (User ID & Search) ── */}
       <div className="flex flex-col md:flex-row gap-4 mb-8">
-        {/* User ID block */}
+        {/* User dropdown block */}
         <div className={`flex-1 p-1.5 rounded-2xl border ${isDarkMode ? 'bg-[#0f172a] border-slate-800' : 'bg-[#eef2f6] border-[#dbeafe]'}`}>
-          <div className="flex">
-            <input
-              type="text"
-              value={userId}
-              onChange={e => setUserId(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleLoad()}
-              placeholder="Enter User ID to load matching"
-              className={`flex-1 px-5 py-3 bg-transparent text-[14px] font-bold outline-none ${isDarkMode ? 'text-white placeholder-slate-600' : 'text-[#1e293b] placeholder-[#94a3b8]'}`}
-            />
-            <button onClick={handleLoad} className={`px-8 py-3 rounded-xl text-[13px] font-black tracking-wide transition-all ${isDarkMode ? 'bg-white text-slate-900 hover:bg-slate-200' : 'bg-[#3b82f6] text-white hover:bg-[#2563eb] shadow shadow-blue-500/20'}`}>LOAD</button>
-          </div>
+          <select
+            value={userId}
+            onChange={(e) => handleUserChange(e.target.value)}
+            disabled={usersLoading || users.length === 0}
+            className={`w-full px-5 py-3 rounded-xl border text-[14px] font-bold outline-none ${
+              isDarkMode
+                ? 'bg-[#0f172a] border-slate-700 text-white'
+                : 'bg-white border-[#cbd5e1] text-[#1e293b]'
+            } ${usersLoading ? 'opacity-70 cursor-wait' : ''}`}
+          >
+            {users.length === 0 ? (
+              <option value="">{usersLoading ? 'Loading users...' : 'No users found'}</option>
+            ) : (
+              users.map((user) => (
+                <option key={user._id} value={user._id}>
+                  {getUserLabel(user)}
+                </option>
+              ))
+            )}
+          </select>
         </div>
         {/* Search block */}
         <div className={`md:w-72 p-1.5 rounded-2xl border flex items-center ${isDarkMode ? 'bg-[#0f172a] border-slate-800' : 'bg-white border-[#e2e8f0] shadow-sm'}`}>

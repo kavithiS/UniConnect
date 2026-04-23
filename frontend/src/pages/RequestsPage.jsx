@@ -130,14 +130,23 @@ export default function RequestsPage({ user: currentUser }) {
     if (!window.confirm('Are you sure you want to delete this request?')) return;
     
     try {
+      const userId = currentUser?._id || localStorage.getItem('userId');
       const response = await fetch(
         `${getApiBase()}/api/requests/${requestId}`,
-        { method: 'DELETE' }
+        {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ userId })
+        }
       );
       const data = await response.json();
       
       if (data.success) {
-        await fetchAllData(currentUser?._id || localStorage.getItem('userId'));
+        setSentRequests((prev) => prev.filter((request) => request._id !== requestId));
+        setGroups((prevGroups) => prevGroups.slice());
         setError(null);
       } else {
         setError(data.message);
@@ -213,6 +222,7 @@ export default function RequestsPage({ user: currentUser }) {
         setShowSendModal(false);
         setSelectedGroupForRequest(null);
         await fetchAllData(userId);
+        setActiveTab('sent');
         setError(null);
       } else {
         setError(data.message || 'Failed to send request');
@@ -231,6 +241,11 @@ export default function RequestsPage({ user: currentUser }) {
   const filteredSent = filterStatus === 'all' 
     ? sentRequests 
     : sentRequests.filter(r => r.status === filterStatus);
+
+  const browseGroups = groups.filter((group) => {
+    const status = (group.status || 'active').toLowerCase();
+    return status !== 'closed' && status !== 'archived';
+  });
 
   // Get recently processed requests (accepted/rejected from last 7 days)
   const allProcessed = [...receivedRequests.filter(r => r.status !== 'pending'), ...sentRequests.filter(r => r.status !== 'pending')];
@@ -313,7 +328,7 @@ export default function RequestsPage({ user: currentUser }) {
     },
     browse: {
       title: 'Browse Groups',
-      count: groups.length,
+      count: browseGroups.length,
       empty: 'No groups available right now.',
     },
   };
@@ -513,18 +528,12 @@ export default function RequestsPage({ user: currentUser }) {
                             {request.message || 'Join request'} • {formatTimeAgo(request.createdAt)}
                           </p>
 
-                          <div className="mt-auto pt-5 flex items-center justify-between gap-3">
+                          <div className="mt-auto pt-5 flex items-center justify-start gap-3">
                             <button
                               onClick={() => handleCancel(request._id)}
                               className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all ${isDarkMode ? 'border-rose-800 text-rose-300 hover:bg-rose-950/40' : 'border-rose-200 text-rose-600 hover:bg-rose-50'}`}
                             >
                               <XCircle size={16} /> Cancel
-                            </button>
-                            <button
-                              onClick={() => handleEditMessage(request._id)}
-                              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all ${isDarkMode ? 'bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}`}
-                            >
-                              <Plus size={16} /> Connect
                             </button>
                           </div>
                         </div>
@@ -536,13 +545,13 @@ export default function RequestsPage({ user: currentUser }) {
 
               {activeTab === 'browse' && (
                 <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                  {groups.length === 0 ? (
+                  {browseGroups.length === 0 ? (
                     <div className={`md:col-span-2 xl:col-span-3 rounded-2xl border border-dashed px-6 py-16 text-center ${isDarkMode ? 'border-slate-800 bg-slate-900/40' : 'border-slate-200 bg-white'}`}>
                       <Bell size={42} className={`mx-auto mb-4 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`} />
                       <p className={`text-base font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{activeTabMeta.browse.empty}</p>
                     </div>
                   ) : (
-                    groups.map((group) => {
+                    browseGroups.map((group) => {
                       const userId = localStorage.getItem('userId');
                       const alreadySentRequest = sentRequests.some((r) => r.groupId?._id === group._id && r.status === 'pending');
                       const alreadyMember = group.members?.some((memberId) => memberId === userId || memberId._id === userId);

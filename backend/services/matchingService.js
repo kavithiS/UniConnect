@@ -3,6 +3,15 @@
  * Contains intelligent matching logic with skill gap analysis
  */
 
+const normalizeSkills = (skills = []) => {
+  if (!Array.isArray(skills)) return [];
+  const normalized = skills
+    .map((skill) => String(skill || '').trim().toLowerCase())
+    .filter(Boolean);
+
+  return [...new Set(normalized)];
+};
+
 /**
  * Calculate match score between user skills and required skills
  * Score = (matchedSkills / requiredSkills.length) * 100
@@ -12,18 +21,17 @@
  * @returns {number} Match score (0-100)
  */
 const calculateMatchScore = (userSkills, requiredSkills) => {
+  const normalizedUserSkills = normalizeSkills(userSkills);
+  const normalizedRequiredSkills = normalizeSkills(requiredSkills);
+
   // Handle edge cases
-  if (!requiredSkills || requiredSkills.length === 0) {
+  if (normalizedRequiredSkills.length === 0) {
     return 100; // Perfect match if no skills required
   }
 
-  if (!userSkills || userSkills.length === 0) {
+  if (normalizedUserSkills.length === 0) {
     return 0; // No match if user has no skills
   }
-
-  // Normalize skills to lowercase for case-insensitive comparison
-  const normalizedUserSkills = userSkills.map(skill => skill.toLowerCase());
-  const normalizedRequiredSkills = requiredSkills.map(skill => skill.toLowerCase());
 
   // Count matched skills
   let matchedCount = 0;
@@ -47,8 +55,11 @@ const calculateMatchScore = (userSkills, requiredSkills) => {
  * @returns {Object} Detailed matching analysis
  */
 const getDetailedMatchAnalysis = (userSkills, requiredSkills) => {
+  const normalizedUserSkills = normalizeSkills(userSkills);
+  const normalizedRequiredSkills = normalizeSkills(requiredSkills);
+
   // Handle edge cases
-  if (!requiredSkills || requiredSkills.length === 0) {
+  if (normalizedRequiredSkills.length === 0) {
     return {
       matchScore: 100,
       matchedSkills: userSkills || [],
@@ -60,31 +71,34 @@ const getDetailedMatchAnalysis = (userSkills, requiredSkills) => {
     };
   }
 
-  if (!userSkills || userSkills.length === 0) {
+  if (normalizedUserSkills.length === 0) {
     return {
       matchScore: 0,
       matchedSkills: [],
-      missingSkills: requiredSkills,
+      missingSkills: requiredSkills || [],
       matchPercentage: '0%',
       matchTier: 'Poor',
-      skillGapCount: requiredSkills.length,
-      analysis: `Student is missing all ${requiredSkills.length} required skills`
+      skillGapCount: normalizedRequiredSkills.length,
+      analysis: `Student is missing all ${normalizedRequiredSkills.length} required skills`
     };
   }
 
-  // Normalize for case-insensitive comparison
-  const normalizedUserSkills = userSkills.map(skill => skill.toLowerCase());
-  const normalizedRequiredSkills = requiredSkills.map(skill => skill.toLowerCase());
+  const requiredSkillMap = new Map(
+    (requiredSkills || [])
+      .map((skill) => String(skill || '').trim())
+      .filter(Boolean)
+      .map((skill) => [skill.toLowerCase(), skill])
+  );
 
   // Find matched and missing skills
   const matchedSkills = [];
   const missingSkills = [];
 
-  normalizedRequiredSkills.forEach((requiredSkill, index) => {
+  normalizedRequiredSkills.forEach((requiredSkill) => {
     if (normalizedUserSkills.includes(requiredSkill)) {
-      matchedSkills.push(requiredSkills[index]); // Use original case
+      matchedSkills.push(requiredSkillMap.get(requiredSkill) || requiredSkill); // Preserve original display when available
     } else {
-      missingSkills.push(requiredSkills[index]);
+      missingSkills.push(requiredSkillMap.get(requiredSkill) || requiredSkill);
     }
   });
 
