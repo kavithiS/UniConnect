@@ -212,18 +212,21 @@ const AddProject = ({ setProjectId }) => {
     : 'border-slate-200/60 bg-white/60';
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${pageBg}`}>
-      <div className={`px-8 pt-8 pb-6 border-b ${isDarkMode ? 'border-slate-800/50' : 'border-slate-200'}`}>
-        <h1 className={`text-3xl font-semibold tracking-tight mb-2 flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>
-          <Target size={30} className="text-indigo-400" />
-          Create New Project
-        </h1>
-        <p className={`text-sm ${isDarkMode ? 'text-slate-500' : 'text-slate-600'}`}>
-          Build a clean project workspace and assemble your team.
-        </p>
-      </div>
+    <div className={`min-h-screen transition-colors duration-300 ${pageBg} p-8`}>
+      <div className="max-w-7xl mx-auto">
+        <div className={`px-8 pt-8 pb-6 relative overflow-hidden rounded-[28px] border mb-8 ${isDarkMode ? 'border-slate-800 bg-slate-950/65' : 'border-slate-200 bg-white/85'}`}>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.14),transparent_35%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.12),transparent_30%)]" />
+          <div className="relative">
+            <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] mb-4 ${isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+              <FolderKanban className="h-3.5 w-3.5" />
+              Project Creation
+            </div>
+            <h1 className={`text-4xl md:text-5xl font-black tracking-tight mb-3 ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>Create New Project</h1>
+            <p className={`max-w-xl text-base md:text-lg ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>Start a new project and build with your team. Add members and define roles.</p>
+          </div>
+        </div>
 
-      <div className="px-8 py-8 space-y-8">
+        <div className="space-y-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className={`border rounded-lg p-4 ${panelClass}`}>
             <p className="text-xs font-medium uppercase tracking-wider text-slate-500 mb-2">Projects</p>
@@ -513,6 +516,7 @@ const AddProject = ({ setProjectId }) => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

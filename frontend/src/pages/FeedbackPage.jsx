@@ -149,15 +149,25 @@ function FeedbackPage({ user }) {
   };
 
   return (
-    <div className={`space-y-6 ${isDarkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-      <header>
-        <h1 className={`text-3xl font-semibold ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>Peer Feedback</h1>
-        <p className={`mt-2 text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>Rate your teammates and provide constructive feedback on your collaborations.</p>
-      </header>
+    <div className={`min-h-screen ${isDarkMode ? 'bg-gradient-to-br from-slate-950 via-slate-950 to-slate-900' : 'bg-gradient-to-br from-white via-slate-50 to-slate-100'} p-8`}>
+      <div className="max-w-7xl mx-auto">
+        <div className={`px-8 pt-8 pb-6 relative overflow-hidden rounded-[28px] border mb-8 ${isDarkMode ? 'border-slate-800 bg-slate-950/65' : 'border-slate-200 bg-white/85'}`}>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.14),transparent_35%),radial-gradient(circle_at_top_right,rgba(236,72,153,0.12),transparent_30%)]" />
+          <div className="relative">
+            <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] mb-4 ${isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+              <Star className="h-3.5 w-3.5" />
+              Collaboration
+            </div>
+            <h1 className={`text-4xl md:text-5xl font-black tracking-tight mb-3 ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>Peer Feedback</h1>
+            <p className={`max-w-xl text-base md:text-lg ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>Rate your teammates and provide constructive feedback on your collaborations.</p>
+          </div>
+        </div>
 
-      {error && <div className={`rounded-xl border ${isDarkMode ? 'border-rose-900/50 bg-rose-500/10 text-rose-300' : 'border-rose-200 bg-rose-50 text-rose-700'} p-3 text-sm`}>{error}</div>}
+        <div className="space-y-6">
 
-      <section className={`rounded-2xl border p-6 ${isDarkMode ? 'border-slate-800 bg-slate-900/60' : 'border-slate-200 bg-white'}`}>
+        {error && <div className={`rounded-2xl border p-4 ${isDarkMode ? 'border-rose-900/50 bg-rose-500/10 text-rose-300' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>{error}</div>}
+
+        <section className={`rounded-2xl border p-6 ${isDarkMode ? 'border-slate-800 bg-slate-900/60' : 'border-slate-200 bg-white'}`}>
         <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>{editingId ? 'Edit Feedback' : 'Rate a Teammate'}</h2>
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-6">
           <div className="grid gap-6 md:grid-cols-2">
@@ -217,10 +227,10 @@ function FeedbackPage({ user }) {
             )}
           </div>
         </form>
-      </section>
+        </section>
 
-      <div className="flex border-b border-slate-800">
-        <button 
+        <div className={`flex border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`}>
+          <button 
           onClick={() => setActiveTab('received')}
           className={`px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'received' ? 'border-b-2 border-indigo-500 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
         >
@@ -231,10 +241,10 @@ function FeedbackPage({ user }) {
           className={`px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'given' ? 'border-b-2 border-indigo-500 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
         >
           Given
-        </button>
-      </div>
+          </button>
+        </div>
 
-      <section className="grid gap-6">
+        <section className="grid gap-6">
         {activeTab === 'received' ? (
           <ListCard title="Feedback Received" items={received} type="received" emptyText="No feedback received yet." />
         ) : (
@@ -248,7 +258,9 @@ function FeedbackPage({ user }) {
             loading={loading}
           />
         )}
-      </section>
+        </section>
+      </div>
+      </div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 const Group = require("../models/Group");
 const User = require("../models/User");
+const Student = require("../models/Student");
 const {
   generateUniqueGroupCode,
   ensureGroupCode,
@@ -12,6 +13,14 @@ const {
 exports.createGroup = async (req, res) => {
   try {
     const { title, description, requiredSkills, memberLimit } = req.body;
+    const currentUserId = req.userId;
+
+    if (!currentUserId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required to create a group",
+      });
+    }
 
     // Validation
     if (!title || !description || memberLimit === undefined) {
@@ -31,12 +40,17 @@ exports.createGroup = async (req, res) => {
     // Generate unique group code
     const groupCode = await generateUniqueGroupCode(Group);
 
+    const ownerStudent = await Student.findOne({ userId: currentUserId }).select("_id");
+    const createdBy = ownerStudent?._id || currentUserId;
+
     const newGroup = new Group({
       title,
       description,
       groupCode,
       requiredSkills: requiredSkills || [],
       memberLimit,
+      createdBy,
+      members: [currentUserId],
     });
 
     await newGroup.save();

@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { groupAPI, recommendationAPI, invitationAPI } from "../api/api";
 import { ArrowLeft } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
-import { fetchCurrentUser, getAuthToken } from "../services/authService";
+import { fetchCurrentUser, fetchUsers, getAuthToken } from "../services/authService";
 import { getMockGroupById, isMockGroupId } from "../data/mockGroups";
 import { leaveGroup } from "../services/chatService";
 
@@ -19,6 +19,7 @@ const GroupDetailsPage = () => {
       "",
   );
   const [group, setGroup] = useState(null);
+  const [userPhotos, setUserPhotos] = useState({});
   const [recommendedUsers, setRecommendedUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -112,6 +113,15 @@ const GroupDetailsPage = () => {
     setError(null);
 
     try {
+      const token = getAuthToken();
+      const usersRes = token ? await fetchUsers(token).catch(() => []) : [];
+      const photoMap = {};
+      usersRes.forEach((u) => {
+        if (u._id && u.profilePicture) {
+          photoMap[typeof u._id === "object" ? u._id.toString() : u._id] = u.profilePicture;
+        }
+      });
+      setUserPhotos(photoMap);
       if (isMockGroupId(id)) {
         const mockGroup = getMockGroupById(id);
         if (!mockGroup) {
@@ -537,8 +547,12 @@ const GroupDetailsPage = () => {
                     >
                       <div className="mb-3">
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm">
-                            {member.name?.charAt(0).toUpperCase()}
+                          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm overflow-hidden shrink-0">
+                            {member.profilePicture || userPhotos[member._id] ? (
+                              <img src={member.profilePicture || userPhotos[member._id]} alt={member.fullName || member.name || "Member"} className="w-full h-full object-cover" />
+                            ) : (
+                              (member.fullName?.charAt(0).toUpperCase() || member.name?.charAt(0).toUpperCase() || "M")
+                            )}
                           </div>
                           <div>
                             <h3

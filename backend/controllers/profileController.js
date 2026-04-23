@@ -12,6 +12,7 @@ exports.setupProfile = async (req, res) => {
       achievements,
       about,
       faculty,
+      profilePicture,
     } = req.body;
 
     if (!fullName || !registrationNumber || !year || !semester || !enrolledYear || !faculty) {
@@ -42,6 +43,7 @@ exports.setupProfile = async (req, res) => {
         achievements: normalizedAchievements,
         about: String(about || '').trim(),
         faculty: String(faculty || '').trim(),
+        profilePicture: profilePicture || '',
         profileCompleted: true,
       },
       { new: true, runValidators: true }

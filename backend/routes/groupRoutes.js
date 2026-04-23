@@ -13,7 +13,7 @@ const authMiddleware = require("../middleware/authMiddleware");
  * DELETE /groups/:id     - Archive group
  */
 
-router.post("/", groupController.createGroup);
+router.post("/", authMiddleware, groupController.createGroup);
 router.get("/", groupController.getAllGroups);
 router.get("/my/members", authMiddleware, groupController.getMyMemberGroups);
 router.get("/code/:code", groupController.getGroupByCode);

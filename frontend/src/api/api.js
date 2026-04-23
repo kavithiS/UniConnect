@@ -61,8 +61,14 @@ export const invitationAPI = {
 
 // ============ RECOMMENDATION ENDPOINTS ============
 export const recommendationAPI = {
-  getGroupsForUser: (userId) => api.get(`/recommend/groups/${userId}`),
-  getUsersForGroup: (groupId) => api.get(`/recommend/users/${groupId}`),
+  getGroupsForUser: (userId, minScore) => {
+    const query = typeof minScore === "number" ? `?minScore=${minScore}` : "";
+    return api.get(`/recommend/groups/${userId}${query}`);
+  },
+  getUsersForGroup: (groupId, minScore) => {
+    const query = typeof minScore === "number" ? `?minScore=${minScore}` : "";
+    return api.get(`/recommend/users/${groupId}${query}`);
+  },
 };
 
 // ============ AI CHAT ENDPOINT ============

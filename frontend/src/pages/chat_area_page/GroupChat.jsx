@@ -136,7 +136,7 @@ const GroupChat = () => {
   const isEmbeddedMobilePreview = searchParams.get("preview") === "mobile";
   const screenHeightClass = isEmbeddedMobilePreview
     ? "h-full min-h-0"
-    : "h-screen";
+    : "min-h-[calc(100vh-8rem)]";
   const chatHorizontalPadding = isEmbeddedMobilePreview ? "px-3" : "px-6";
 
   const handleClosePreviewFrame = () => {
@@ -170,6 +170,8 @@ const GroupChat = () => {
   const [error, setError] = useState(null);
   const [typing, setTyping] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [userGroups, setUserGroups] = useState([]); // All groups user is in
+  const [loadingGroups, setLoadingGroups] = useState(true); // Loading state for groups
 
   // ========== NEW FEATURES STATES ==========
   const [replyingTo, setReplyingTo] = useState(null); // Message being replied to
@@ -202,6 +204,8 @@ const GroupChat = () => {
   const [showGroupDetails, setShowGroupDetails] = useState(false); // Group details panel
   const [noGroupsAvailable, setNoGroupsAvailable] = useState(false); // Flag when no groups exist
   const [chatSelectionNonce, setChatSelectionNonce] = useState(0);
+  const [chatSidebarOpen, setChatSidebarOpen] = useState(true); // Collapsible sidebar
+  const [chatSearch, setChatSearch] = useState(""); // Search filter for chat list
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -369,10 +373,10 @@ const GroupChat = () => {
           setSenderId(String(matchingStudent._id));
           setSenderName(
             `${matchingStudent.firstName || ""} ${matchingStudent.lastName || ""}`.trim() ||
-              resolvedAuthUser?.fullName ||
-              resolvedAuthUser?.name ||
-              resolvedAuthUser?.email ||
-              "User",
+            resolvedAuthUser?.fullName ||
+            resolvedAuthUser?.name ||
+            resolvedAuthUser?.email ||
+            "User",
           );
 
           if (matchingStudent.profilePicture) {
@@ -383,9 +387,9 @@ const GroupChat = () => {
           setSenderId(authId);
           setSenderName(
             resolvedAuthUser?.fullName ||
-              resolvedAuthUser?.name ||
-              resolvedAuthUser?.email ||
-              "User",
+            resolvedAuthUser?.name ||
+            resolvedAuthUser?.email ||
+            "User",
           );
         }
       } catch (err) {
@@ -396,6 +400,93 @@ const GroupChat = () => {
     resolveChatIdentity();
   }, [initialAuthUserId]);
 
+  // Fetch all user groups for sidebar
+  useEffect(() => {
+    const fetchUserGroups = async () => {
+      try {
+        setLoadingGroups(true);
+
+        if (!currentUserId && !senderId) {
+          setLoadingGroups(false);
+          return;
+        }
+
+        const userId = currentUserId || senderId;
+        console.log("🔄 Fetching groups for user:", userId);
+
+        const groupsResponse = await getStudentGroups(userId);
+        let groups = groupsResponse.data || [];
+
+        console.log("✅ Groups fetched:", groups.length, groups.map(g => g.groupName || g._id));
+
+        // Ensure current group is in the list if it's loaded
+        if (groupDetails && !groups.some(g => g._id === groupDetails._id)) {
+          console.log("📌 Adding current group to list:", groupDetails.groupName);
+          groups = [groupDetails, ...groups];
+        }
+
+        // Sort groups by last message time (newest first)
+        const sortedGroups = groups.sort((a, b) => {
+          const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+          const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
+          return bTime - aTime;
+        });
+
+        setUserGroups(sortedGroups);
+        setLoadingGroups(false);
+      } catch (err) {
+        console.error("❌ Failed to fetch user groups:", err);
+        // If current group is loaded, at least show that in the sidebar
+        if (groupDetails && !userGroups.some(g => g._id === groupDetails._id)) {
+          console.log("📌 Using current group as fallback");
+          setUserGroups([groupDetails]);
+        }
+        setLoadingGroups(false);
+      }
+    };
+
+    if (currentUserId || senderId) {
+      fetchUserGroups();
+    }
+  }, [currentUserId, senderId]);
+
+  // Refetch groups when group changes to keep sidebar updated
+  useEffect(() => {
+    if (!groupId) return;
+
+    const refetchGroups = async () => {
+      try {
+        const userId = currentUserId || senderId;
+        if (!userId) return;
+
+        console.log("🔄 Refetching groups after group change, user:", userId);
+
+        const groupsResponse = await getStudentGroups(userId);
+        const groups = groupsResponse.data || [];
+
+        console.log("✅ Refetch complete, groups count:", groups.length);
+
+        const sortedGroups = groups.sort((a, b) => {
+          const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+          const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
+          return bTime - aTime;
+        });
+
+        setUserGroups(sortedGroups);
+      } catch (err) {
+        console.error("Failed to refetch groups:", err);
+      }
+    };
+
+    // If we have a groupId but no userGroups, fetch them immediately
+    if (groupId && userGroups.length === 0) {
+      refetchGroups();
+    } else {
+      const timer = setTimeout(refetchGroups, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [groupId, senderId, currentUserId]);
+
   useEffect(() => {
     const initializeChat = async () => {
       try {
@@ -404,11 +495,11 @@ const GroupChat = () => {
         // Step 1: Resolve selected group from active selection or current user's groups.
         const preferredGroupId = localStorage.getItem("activeGroupId");
         let selectedGroupId = groupId;
-        const currentStudentId = currentUserId;
+        const studentId = currentUserId || senderId;
         if (!selectedGroupId) {
-          if (currentStudentId) {
+          if (studentId) {
             try {
-              const groupsResponse = await getStudentGroups(currentStudentId);
+              const groupsResponse = await getStudentGroups(studentId);
               const userGroups = groupsResponse.data || [];
 
               if (userGroups.length > 0) {
@@ -595,9 +686,9 @@ const GroupChat = () => {
         prevMessages.map((msg) =>
           msg._id === data.messageId
             ? {
-                ...msg,
-                reactions: data.updatedReactions || msg.reactions,
-              }
+              ...msg,
+              reactions: data.updatedReactions || msg.reactions,
+            }
             : msg,
         ),
       );
@@ -610,21 +701,21 @@ const GroupChat = () => {
         prevMessages.map((msg) =>
           msg._id === messageId
             ? {
-                ...msg,
-                isDeleted: true,
-                text: "[This message was deleted]",
-                reactions: [],
-                mentions: [],
-                replyTo: null,
-                isEdited: false,
-                editedAt: null,
-                isForwarded: false,
-                fileUrl: null,
-                fileName: null,
-                fileType: null,
-                fileSize: null,
-                deletedAt: deletedAt || new Date().toISOString(),
-              }
+              ...msg,
+              isDeleted: true,
+              text: "[This message was deleted]",
+              reactions: [],
+              mentions: [],
+              replyTo: null,
+              isEdited: false,
+              editedAt: null,
+              isForwarded: false,
+              fileUrl: null,
+              fileName: null,
+              fileType: null,
+              fileSize: null,
+              deletedAt: deletedAt || new Date().toISOString(),
+            }
             : msg,
         ),
       );
@@ -735,21 +826,21 @@ const GroupChat = () => {
         file: selectedFile,
         replyTo: replyingTo
           ? {
-              messageId: replyingTo._id || null,
-              senderName: replyingTo.senderName || "",
-              messageType: replyingTo.fileUrl
-                ? String(replyingTo.fileType || "")
-                    .toLowerCase()
-                    .startsWith("image/")
-                  ? "image"
-                  : "file"
-                : "text",
-              messageText:
-                typeof replyingTo.text === "string"
-                  ? replyingTo.text.trim()
-                  : "",
-              fileUrl: replyingTo.fileUrl || null,
-            }
+            messageId: replyingTo._id || null,
+            senderName: replyingTo.senderName || "",
+            messageType: replyingTo.fileUrl
+              ? String(replyingTo.fileType || "")
+                .toLowerCase()
+                .startsWith("image/")
+                ? "image"
+                : "file"
+              : "text",
+            messageText:
+              typeof replyingTo.text === "string"
+                ? replyingTo.text.trim()
+                : "",
+            fileUrl: replyingTo.fileUrl || null,
+          }
           : null,
       };
 
@@ -960,21 +1051,21 @@ const GroupChat = () => {
         file: recordedAudioFile,
         replyTo: replyingTo
           ? {
-              messageId: replyingTo._id || null,
-              senderName: replyingTo.senderName || "",
-              messageType: replyingTo.fileUrl
-                ? String(replyingTo.fileType || "")
-                    .toLowerCase()
-                    .startsWith("image/")
-                  ? "image"
-                  : "file"
-                : "text",
-              messageText:
-                typeof replyingTo.text === "string"
-                  ? replyingTo.text.trim()
-                  : "",
-              fileUrl: replyingTo.fileUrl || null,
-            }
+            messageId: replyingTo._id || null,
+            senderName: replyingTo.senderName || "",
+            messageType: replyingTo.fileUrl
+              ? String(replyingTo.fileType || "")
+                .toLowerCase()
+                .startsWith("image/")
+                ? "image"
+                : "file"
+              : "text",
+            messageText:
+              typeof replyingTo.text === "string"
+                ? replyingTo.text.trim()
+                : "",
+            fileUrl: replyingTo.fileUrl || null,
+          }
           : null,
       };
 
@@ -1062,11 +1153,11 @@ const GroupChat = () => {
         messages.map((m) =>
           m._id === editingMessage._id
             ? {
-                ...m,
-                text: messageText.trim(),
-                isEdited: true,
-                editedAt: new Date().toISOString(),
-              }
+              ...m,
+              text: messageText.trim(),
+              isEdited: true,
+              editedAt: new Date().toISOString(),
+            }
             : m,
         ),
       );
@@ -1079,11 +1170,11 @@ const GroupChat = () => {
           messages.map((m) =>
             m._id === editingMessage._id
               ? {
-                  ...m,
-                  text: messageText.trim(),
-                  isEdited: true,
-                  editedAt: new Date().toISOString(),
-                }
+                ...m,
+                text: messageText.trim(),
+                isEdited: true,
+                editedAt: new Date().toISOString(),
+              }
               : m,
           ),
         );
@@ -1303,9 +1394,9 @@ const GroupChat = () => {
             const updated = isStarred
               ? existing.filter((s) => s.userId !== senderId)
               : [
-                  ...existing,
-                  { userId: senderId, starredAt: new Date().toISOString() },
-                ];
+                ...existing,
+                { userId: senderId, starredAt: new Date().toISOString() },
+              ];
 
             return { ...m, starredBy: updated };
           }),
@@ -1513,19 +1604,19 @@ const GroupChat = () => {
       clientMessageId,
       replyTo: replyingTo
         ? {
-            messageId: replyingTo._id || null,
-            senderName: replyingTo.senderName || "",
-            messageType: replyingTo.fileUrl
-              ? String(replyingTo.fileType || "")
-                  .toLowerCase()
-                  .startsWith("image/")
-                ? "image"
-                : "file"
-              : "text",
-            messageText:
-              typeof replyingTo.text === "string" ? replyingTo.text.trim() : "",
-            fileUrl: replyingTo.fileUrl || null,
-          }
+          messageId: replyingTo._id || null,
+          senderName: replyingTo.senderName || "",
+          messageType: replyingTo.fileUrl
+            ? String(replyingTo.fileType || "")
+              .toLowerCase()
+              .startsWith("image/")
+              ? "image"
+              : "file"
+            : "text",
+          messageText:
+            typeof replyingTo.text === "string" ? replyingTo.text.trim() : "",
+          fileUrl: replyingTo.fileUrl || null,
+        }
         : null,
       mentions: mentions.length > 0 ? mentions : [],
     };
@@ -1603,8 +1694,8 @@ const GroupChat = () => {
       setMessages((prev) =>
         prev.map((message) =>
           selectedMessageIds.includes(message._id) &&
-          isMyMessage(message) &&
-          !message.isDeleted
+            isMyMessage(message) &&
+            !message.isDeleted
             ? toDeletedMessageState(message)
             : message,
         ),
@@ -2052,54 +2143,285 @@ const GroupChat = () => {
     );
   }
 
+  // Filter groups by search query
+  const filteredGroups = chatSearch.trim()
+    ? userGroups.filter((g) =>
+      (g.groupName || "").toLowerCase().includes(chatSearch.trim().toLowerCase())
+    )
+    : userGroups;
+
   return (
     <div
-      className={`flex flex-col ${screenHeightClass} relative w-full max-w-full min-w-0 box-border overflow-x-hidden ${isDarkMode ? "bg-gray-900" : "bg-gray-100"}`}
+      className={`flex flex-row ${screenHeightClass} relative w-full max-w-full min-w-0 box-border overflow-x-hidden ${isDarkMode ? "bg-gray-900" : "bg-gray-100"}`}
     >
+      {/* ── Sidebar toggle button (always visible) ── */}
+      <button
+        onClick={() => setChatSidebarOpen((prev) => !prev)}
+        title={chatSidebarOpen ? "Hide sidebar" : "Show sidebar"}
+        aria-label={chatSidebarOpen ? "Collapse chat list" : "Expand chat list"}
+        className={`absolute top-1/2 -translate-y-1/2 z-30 flex items-center justify-center w-6 h-10 rounded-r-lg shadow-md opacity-40 hover:opacity-100 transition-all duration-300 ease-in-out ${chatSidebarOpen ? "left-64" : "left-0"
+          } ${isDarkMode
+            ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
+            : "bg-white hover:bg-gray-100 text-gray-600 border border-gray-200"
+          }`}
+      >
+        <svg
+          className={`w-3.5 h-3.5 transition-transform duration-300 ${chatSidebarOpen ? "" : "rotate-180"
+            }`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+
+      {/* ── Messages Sidebar ── */}
+      <div
+        className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200"
+          } border-r flex flex-col min-h-0 flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out ${chatSidebarOpen ? "w-64 opacity-100" : "w-0 opacity-0"
+          }`}
+      >
+        {/* Sidebar Header */}
+        <div
+          className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+            } border-b px-4 py-4 flex-shrink-0 min-w-[256px]`}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={`text-lg font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>
+              Messages
+            </h2>
+            {loadingGroups && (
+              <div className="h-4 w-4 rounded-full border-2 border-t-blue-500 border-gray-300 animate-spin" />
+            )}
+          </div>
+          {/* Search Bar */}
+          <div
+            className={`flex items-center px-3 py-2 rounded-full ${isDarkMode ? "bg-gray-700" : "bg-gray-200"
+              }`}
+          >
+            <svg
+              className={`w-4 h-4 flex-shrink-0 ${isDarkMode ? "text-gray-400" : "text-gray-500"
+                }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search chats..."
+              value={chatSearch}
+              onChange={(e) => setChatSearch(e.target.value)}
+              className={`ml-2 bg-transparent border-none outline-none text-sm w-full placeholder-opacity-70 ${isDarkMode
+                ? "text-gray-200 placeholder-gray-400"
+                : "text-gray-800 placeholder-gray-500"
+                }`}
+            />
+            {chatSearch && (
+              <button
+                onClick={() => setChatSearch("")}
+                aria-label="Clear search"
+                className={`ml-1 flex-shrink-0 rounded-full p-0.5 transition ${isDarkMode
+                  ? "text-gray-400 hover:text-gray-200"
+                  : "text-gray-500 hover:text-gray-800"
+                  }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Chats List */}
+        <div className="flex-1 overflow-y-auto app-scrollbar min-w-[256px]">
+          {loadingGroups && userGroups.length === 0 ? (
+            <div className={`p-4 text-center ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+              <p className="text-sm">Loading chats...</p>
+            </div>
+          ) : userGroups.length === 0 ? (
+            <div className={`p-4 text-center space-y-3 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+              <p className="text-sm">No groups yet</p>
+              <button
+                onClick={async () => {
+                  setLoadingGroups(true);
+                  try {
+                    const userId = currentUserId || senderId;
+                    if (userId) {
+                      const response = await getStudentGroups(userId);
+                      const groups = response.data || [];
+                      const sorted = groups.sort((a, b) => {
+                        const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+                        const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
+                        return bTime - aTime;
+                      });
+                      setUserGroups(sorted);
+                    }
+                  } catch (err) {
+                    console.error("Refresh failed:", err);
+                  } finally {
+                    setLoadingGroups(false);
+                  }
+                }}
+                className={`text-xs px-3 py-1 rounded transition ${isDarkMode ? "bg-blue-900 text-blue-400 hover:bg-blue-800" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}
+              >
+                Refresh
+              </button>
+            </div>
+          ) : filteredGroups.length === 0 ? (
+            <div className={`p-4 text-center ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+              <p className="text-sm">No chats match &ldquo;{chatSearch}&rdquo;</p>
+            </div>
+          ) : (
+            filteredGroups.map((group) => {
+              const isSelected = groupId === group._id;
+              const lastMessage = group.lastMessage || "";
+              const lastMessageTime = group.updatedAt || group.createdAt;
+
+              // Format timestamp
+              const formatTime = (date) => {
+                if (!date) return "";
+                const d = new Date(date);
+                const now = new Date();
+                const diffMinutes = Math.floor((now - d) / 60000);
+                const diffHours = Math.floor(diffMinutes / 60);
+                const diffDays = Math.floor(diffHours / 24);
+
+                if (diffMinutes < 1) return "Now";
+                if (diffMinutes < 60) return `${diffMinutes}m ago`;
+                if (diffHours < 24) {
+                  const hours = d.getHours().toString().padStart(2, "0");
+                  const mins = d.getMinutes().toString().padStart(2, "0");
+                  return `${hours}:${mins}`;
+                }
+                if (diffDays === 1) return "Yesterday";
+                if (diffDays < 7) return `${diffDays}d ago`;
+
+                const month = (d.getMonth() + 1).toString().padStart(2, "0");
+                const day = d.getDate().toString().padStart(2, "0");
+                return `${month}/${day}`;
+              };
+
+              return (
+                <button
+                  key={group._id}
+                  onClick={() => {
+                    const previousGroupId = activeGroupRef.current;
+                    if (previousGroupId && previousGroupId !== group._id) {
+                      socket.emit("leave_group", { groupId: previousGroupId });
+                    }
+
+                    localStorage.setItem("activeGroupId", group._id);
+                    setGroupId(group._id);
+                    setMessages([]);
+                    setPinnedMessages([]);
+                    setGroupMembers([]);
+                    setTyping(false);
+                    setReplyingTo(null);
+                    setEditingMessage(null);
+                    setContextMenu(null);
+                    setSelectedMessageIds([]);
+                    setSelectionMode(false);
+                    setIsLoading(true);
+                    setChatSelectionNonce((current) => current + 1);
+                  }}
+                  className={`w-full px-4 py-3 flex items-center gap-3 border-b transition-colors ${isSelected
+                    ? isDarkMode
+                      ? "bg-blue-900/30 border-gray-600"
+                      : "bg-blue-50 border-gray-200"
+                    : isDarkMode
+                      ? "bg-gray-800 border-gray-700 hover:bg-gray-700"
+                      : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                    }`}
+                >
+                  <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white rounded-full w-10 h-10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {group?.profilePicture ? (
+                      <img
+                        src={group.profilePicture}
+                        alt={group?.groupName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <FaUsers size={16} />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p
+                      className={`text-sm font-semibold truncate ${isDarkMode ? "text-gray-100" : "text-gray-900"
+                        }`}
+                    >
+                      {group?.groupName || "Group"}
+                    </p>
+                    <p
+                      className={`text-xs truncate ${isDarkMode ? "text-gray-400" : "text-gray-600"
+                        }`}
+                    >
+                      {lastMessage || (group.members?.length || 0) + " members"}
+                    </p>
+                  </div>
+                  <p
+                    className={`text-xs flex-shrink-0 whitespace-nowrap ${isDarkMode ? "text-gray-500" : "text-gray-500"
+                      }`}
+                  >
+                    {formatTime(lastMessageTime)}
+                  </p>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col w-full max-w-full min-w-0 min-h-0 overflow-hidden box-border">
         {/* Chat Header */}
         <div
-          className={`sticky top-0 z-10 border-b ${chatHorizontalPadding} h-14 shadow-sm ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+          className={`sticky top-0 z-10 border-b ${chatHorizontalPadding} h-16 shadow-sm flex items-center justify-between ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
         >
-          <div className="h-full flex items-center justify-between gap-2">
-            <button
-              onClick={() => setShowGroupDetails(true)}
-              className="flex items-center space-x-2 w-full text-left rounded-lg p-1 transition-colors duration-200 min-w-0"
-            >
-              <div className="bg-blue-600 text-white rounded-full w-9 h-9 flex items-center justify-center overflow-hidden flex-shrink-0">
-                {groupDetails?.profilePicture ? (
-                  <img
-                    src={groupDetails.profilePicture}
-                    alt={groupDetails?.groupName || "Group Chat"}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <FaUsers />
-                )}
-              </div>
-              <div className="min-w-0">
-                <h1
-                  className={`text-base font-semibold truncate ${isDarkMode ? "text-gray-100" : "text-gray-800"}`}
-                >
-                  {groupDetails?.groupName || "Group Chat"}
-                </h1>
-                <p
-                  className={`text-xs truncate ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
-                >
-                  {groupDetails?.members?.length || 0} members
-                </p>
-              </div>
-            </button>
-          </div>
+          <button
+            onClick={() => setShowGroupDetails(true)}
+            className="flex items-center space-x-3 text-left rounded-lg p-2 transition-colors duration-200 min-w-0 hover:opacity-80 flex-1"
+          >
+            <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white rounded-full w-12 h-12 flex items-center justify-center overflow-hidden flex-shrink-0">
+              {groupDetails?.profilePicture ? (
+                <img
+                  src={groupDetails.profilePicture}
+                  alt={groupDetails?.groupName || "Group Chat"}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <FaUsers size={20} />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1
+                className={`text-lg font-bold truncate ${isDarkMode ? "text-gray-100" : "text-gray-800"}`}
+              >
+                {groupDetails?.groupName || "Group Chat"}
+              </h1>
+              <p
+                className={`text-sm truncate ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
+              >
+                {groupDetails?.members?.length || 0} members
+              </p>
+            </div>
+          </button>
         </div>
 
         {selectionMode && (
           <div
-            className={`sticky top-14 z-10 px-6 py-2 border-b flex items-center justify-between ${isEmbeddedMobilePreview ? "bg-indigo-950/90 border-indigo-700 px-3 py-2" : isDarkMode ? "bg-indigo-900/20 border-indigo-700" : "bg-indigo-50 border-indigo-200"}`}
+            className={`sticky top-16 z-10 px-6 py-3 border-b flex items-center justify-between ${isEmbeddedMobilePreview ? "bg-indigo-950/90 border-indigo-700 px-3 py-2" : isDarkMode ? "bg-indigo-900/20 border-indigo-700" : "bg-indigo-50 border-indigo-200"}`}
           >
             <p
-              className={`text-sm ${isDarkMode ? "text-indigo-300" : "text-indigo-700"}`}
+              className={`text-sm font-medium ${isDarkMode ? "text-indigo-300" : "text-indigo-700"}`}
             >
               {selectedMessageIds.length} selected
             </p>
@@ -2140,20 +2462,20 @@ const GroupChat = () => {
         {/* Persistent Pinned Messages Strip */}
         {pinnedMessages.length > 0 && (
           <div
-            className={`sticky top-14 z-10 border-b ${isEmbeddedMobilePreview ? "border-amber-700 bg-amber-950/95 px-3 py-1" : "border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-2"}`}
+            className={`sticky top-16 z-10 border-b ${isEmbeddedMobilePreview ? "border-amber-700 bg-amber-950/95 px-3 py-2" : "border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-3"}`}
           >
-            <div className="flex items-center justify-between mb-0.5">
-              <div className="flex items-center gap-1.5">
-                <span className="text-amber-600 dark:text-amber-400 text-xs leading-none">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <span className={`text-sm ${isDarkMode ? "text-amber-400" : "text-amber-600"}`}>
                   📌
                 </span>
-                <p className="text-[9px] font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-wide leading-none">
-                  Pinned Messages ({pinnedMessages.length}/3)
+                <p className={`text-xs font-semibold uppercase tracking-wide ${isDarkMode ? "text-amber-300" : "text-amber-800"}`}>
+                  Pinned ({pinnedMessages.length}/3)
                 </p>
               </div>
               <button
                 onClick={() => setShowPinnedPanel((prev) => !prev)}
-                className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-700 transition leading-none"
+                className={`text-xs px-2 py-1 rounded-md transition ${isDarkMode ? "bg-amber-800 text-amber-200 hover:bg-amber-700" : "bg-amber-100 text-amber-700 hover:bg-amber-200"}`}
               >
                 {showPinnedPanel ? "Compact" : "Expand"}
               </button>
@@ -2176,13 +2498,13 @@ const GroupChat = () => {
                         block: "center",
                       });
                     }}
-                    className={`text-left rounded-md border border-amber-300 dark:border-amber-600 bg-white/90 dark:bg-gray-800/90 hover:bg-amber-100 dark:hover:bg-amber-800/30 transition p-2 ${showPinnedPanel ? "w-full" : "min-w-[220px] max-w-[260px]"}`}
+                    className={`text-left rounded-md border transition p-2 ${isDarkMode ? "border-amber-600 bg-gray-800/90 hover:bg-amber-800/30" : "border-amber-300 bg-white/90 hover:bg-amber-100"}`}
                     title="Jump to pinned message"
                   >
-                    <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 truncate mb-0.5 leading-none">
+                    <p className={`text-xs font-semibold truncate mb-1 ${isDarkMode ? "text-amber-300" : "text-amber-700"}`}>
                       {msg.senderName || "Pinned message"}
                     </p>
-                    <p className="text-[10px] text-gray-700 dark:text-gray-200 leading-tight">
+                    <p className={`text-xs leading-tight ${isDarkMode ? "text-gray-200" : "text-gray-700"}`}>
                       {truncateWords(msg.text, 3)}
                     </p>
                   </button>
@@ -2194,7 +2516,7 @@ const GroupChat = () => {
 
         {/* Messages Container */}
         <div
-          className={`app-scrollbar flex-1 min-h-0 overflow-y-auto overflow-x-hidden ${chatHorizontalPadding} py-4 space-y-4 relative w-full max-w-full box-border ${isDarkMode ? "bg-gray-900" : "bg-white"}`}
+          className={`app-scrollbar flex-1 min-h-0 overflow-y-auto overflow-x-hidden ${chatHorizontalPadding} py-6 space-y-4 relative w-full max-w-full box-border ${isDarkMode ? "bg-gray-900" : "bg-white"}`}
           style={{ overscrollBehavior: "contain" }}
         >
           {messages.length === 0 ? (
@@ -2268,12 +2590,12 @@ const GroupChat = () => {
 
         {/* Message Input Area */}
         <div
-          className={`sticky bottom-0 z-10 border-t ${chatHorizontalPadding} py-4 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+          className={`sticky bottom-0 z-10 border-t ${chatHorizontalPadding} py-4 px-2 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
         >
           {/* Reply Preview */}
           {replyingTo && (
             <div
-              className={`mb-3 border-l-4 border-blue-500 rounded px-4 py-3 flex items-start justify-between ${isDarkMode ? "bg-blue-900/30" : "bg-blue-50"}`}
+              className={`mb-3 rounded-lg px-3 py-3 flex items-start justify-between border-l-4 border-blue-500 ${isDarkMode ? "bg-blue-900/30" : "bg-blue-50"}`}
             >
               <div className="flex-1">
                 <p
@@ -2289,7 +2611,7 @@ const GroupChat = () => {
               </div>
               <button
                 onClick={() => setReplyingTo(null)}
-                className={`ml-2 ${isDarkMode ? "text-blue-400 hover:text-blue-200" : "text-blue-600 hover:text-blue-800"}`}
+                className={`ml-2 flex-shrink-0 ${isDarkMode ? "text-blue-400 hover:text-blue-200" : "text-blue-600 hover:text-blue-800"}`}
               >
                 <FaTimes size={16} />
               </button>
@@ -2299,7 +2621,7 @@ const GroupChat = () => {
           {/* Edit Mode Indicator */}
           {editingMessage && (
             <div
-              className={`mb-3 border-l-4 border-purple-500 rounded px-4 py-3 flex items-start justify-between ${isDarkMode ? "bg-purple-900/30" : "bg-purple-50"}`}
+              className={`mb-3 rounded-lg px-3 py-3 flex items-start justify-between border-l-4 border-purple-500 ${isDarkMode ? "bg-purple-900/30" : "bg-purple-50"}`}
             >
               <div className="flex-1">
                 <p
@@ -2313,7 +2635,7 @@ const GroupChat = () => {
                   setEditingMessage(null);
                   setMessageText("");
                 }}
-                className={`ml-2 ${isDarkMode ? "text-purple-400 hover:text-purple-200" : "text-purple-600 hover:text-purple-800"}`}
+                className={`ml-2 flex-shrink-0 ${isDarkMode ? "text-purple-400 hover:text-purple-200" : "text-purple-600 hover:text-purple-800"}`}
               >
                 <FaTimes size={16} />
               </button>
@@ -2322,21 +2644,21 @@ const GroupChat = () => {
 
           {/* Selected File Preview */}
           {selectedFile && (
-            <div className="mb-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-400/30 rounded-lg p-3 flex items-center justify-between">
-              <div className="flex items-center space-x-2">
+            <div className={`mb-3 rounded-lg p-3 flex items-center justify-between border ${isDarkMode ? "bg-blue-900/30 border-blue-400/30" : "bg-blue-50 border-blue-200"}`}>
+              <div className="flex items-center space-x-3">
                 <span className="text-2xl">{getFileIcon(selectedFile)}</span>
                 <div>
-                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                  <p className={`text-sm font-medium ${isDarkMode ? "text-blue-200" : "text-blue-900"}`}>
                     {selectedFile.name}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className={`text-xs ${isDarkMode ? "text-blue-300/70" : "text-blue-700/70"}`}>
                     {(selectedFile.size / 1024).toFixed(2)} KB
                   </p>
                 </div>
               </div>
               <button
                 onClick={handleCancelFile}
-                className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-semibold text-sm"
+                className={`text-sm font-semibold transition ${isDarkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-700"}`}
               >
                 Remove
               </button>
@@ -2346,17 +2668,8 @@ const GroupChat = () => {
           {/* Input Form */}
           <form
             onSubmit={handleSendMessageWithMentions}
-            className="flex items-end space-x-2 relative"
+            className="flex items-center gap-2 relative"
           >
-            {/* File Upload Button */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className={`rounded-full p-3 transition ${isDarkMode ? "bg-gray-700 hover:bg-gray-600 text-gray-300" : "bg-gray-200 hover:bg-gray-300 text-gray-700"}`}
-              disabled={isSending}
-            >
-              <FaPaperclip size={18} />
-            </button>
             <input
               type="file"
               ref={fileInputRef}
@@ -2365,10 +2678,27 @@ const GroupChat = () => {
               accept=".zip,.rar,.7z,.pdf,.doc,.docx,.jpg,.png"
             />
 
-            {/* Message Input */}
+            {/* Message Input — pill-shaped container with attachment btn inside */}
             <div
-              className={`flex-1 rounded-full px-4 py-2 relative ${isDarkMode ? "bg-gray-700" : "bg-gray-100"}`}
+              className={`flex flex-1 items-center gap-2 rounded-full px-3 py-2 relative border transition-colors ${isDarkMode
+                ? "bg-gray-700 border-gray-600 focus-within:border-blue-500"
+                : "bg-gray-100 border-gray-300 focus-within:border-blue-500"
+                }`}
             >
+              {/* Attachment Button — inside pill, left side */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition ${isDarkMode
+                  ? "text-gray-400 hover:text-blue-400 hover:bg-gray-600"
+                  : "text-gray-500 hover:text-blue-600 hover:bg-gray-200"
+                  }`}
+                disabled={isSending}
+                title="Attach file"
+              >
+                <FaPaperclip size={16} />
+              </button>
+
               {/* Emoji Picker */}
               <EmojiPicker
                 show={showEmojiPicker}
@@ -2379,7 +2709,7 @@ const GroupChat = () => {
               {isRecording ? (
                 <div
                   ref={recordingControlsRef}
-                  className="flex items-center justify-center gap-3 py-2 px-2"
+                  className="flex flex-1 items-center justify-center gap-3 py-1"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -2406,11 +2736,10 @@ const GroupChat = () => {
                   aria-label="Voice recording controls"
                 >
                   <span
-                    className={`font-medium text-sm ${
-                      isPaused
-                        ? "text-orange-500 dark:text-orange-400"
-                        : "text-red-500 dark:text-red-400"
-                    }`}
+                    className={`font-medium text-sm ${isPaused
+                      ? "text-orange-500 dark:text-orange-400"
+                      : "text-red-500 dark:text-red-400"
+                      }`}
                   >
                     {isPaused ? "Paused" : "Recording..."}
                   </span>
@@ -2430,11 +2759,10 @@ const GroupChat = () => {
                     </div>
                   )}
                   <span
-                    className={`tabular-nums text-sm font-semibold ${
-                      isPaused
-                        ? "text-orange-500 dark:text-orange-400"
-                        : "text-red-500 dark:text-red-400"
-                    }`}
+                    className={`tabular-nums text-sm font-semibold ${isPaused
+                      ? "text-orange-500 dark:text-orange-400"
+                      : "text-red-500 dark:text-red-400"
+                      }`}
                   >
                     {formatDuration(recordingDuration)}
                   </span>
@@ -2445,24 +2773,23 @@ const GroupChat = () => {
                         ? handleResumeVoiceRecording
                         : handlePauseVoiceRecording
                     }
-                    className={`transition ml-1 ${
-                      isPaused
-                        ? "text-green-500 dark:text-green-400 hover:text-green-600 dark:hover:text-green-300"
-                        : "text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300"
-                    }`}
+                    className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition ${isPaused
+                      ? "text-green-500 dark:text-green-400 hover:text-green-600 dark:hover:text-green-300"
+                      : "text-orange-500 dark:text-orange-400 hover:text-orange-600 dark:hover:text-orange-300"
+                      }`}
                     title={isPaused ? "Resume recording" : "Pause recording"}
                   >
-                    {isPaused ? <FaPlay size={16} /> : <FaPause size={16} />}
+                    {isPaused ? <FaPlay size={15} /> : <FaPause size={15} />}
                   </button>
                   <button
                     type="button"
                     onClick={handleDeleteVoiceRecording}
-                    className="text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition"
+                    className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition"
                     title="Delete recording"
                   >
-                    <FaTrash size={16} />
+                    <FaTrash size={15} />
                   </button>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
                     Press{" "}
                     <kbd className="bg-gray-300 dark:bg-gray-600 px-1.5 py-0.5 rounded text-xs font-mono">
                       Enter
@@ -2472,41 +2799,50 @@ const GroupChat = () => {
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center gap-2">
-                    <input
-                      ref={messageInputRef}
-                      type="text"
-                      value={messageText}
-                      onChange={handleMessageInputChange}
-                      placeholder={
-                        editingMessage
-                          ? "Edit message..."
-                          : "Type a message... @ to mention"
-                      }
-                      className={`flex-1 bg-transparent border-none outline-none ring-0 focus:outline-none focus:ring-0 placeholder-opacity-70 ${isDarkMode ? "text-gray-200 placeholder-gray-400" : "text-gray-800 placeholder-gray-500"}`}
-                      disabled={isSending}
-                    />
+                  <input
+                    ref={messageInputRef}
+                    type="text"
+                    value={messageText}
+                    onChange={handleMessageInputChange}
+                    placeholder={
+                      editingMessage
+                        ? "Edit message..."
+                        : "Type a message... @ to mention"
+                    }
+                    className={`flex-1 bg-transparent border-none outline-none ring-0 focus:outline-none focus:ring-0 placeholder-opacity-70 text-sm py-1 ${isDarkMode
+                      ? "text-gray-200 placeholder-gray-400"
+                      : "text-gray-800 placeholder-gray-500"
+                      }`}
+                    disabled={isSending}
+                  />
 
-                    {/* Emoji Button */}
-                    <button
-                      type="button"
-                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                      className={`transition ${isDarkMode ? "text-gray-400 hover:text-yellow-400" : "text-gray-500 hover:text-yellow-500"}`}
-                      disabled={isSending}
-                    >
-                      <FaSmile size={20} />
-                    </button>
+                  {/* Emoji Button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                    className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition ${isDarkMode
+                      ? "text-gray-400 hover:text-yellow-400 hover:bg-gray-600"
+                      : "text-gray-500 hover:text-yellow-500 hover:bg-gray-200"
+                      }`}
+                    disabled={isSending}
+                    title="Emoji"
+                  >
+                    <FaSmile size={17} />
+                  </button>
 
-                    <button
-                      type="button"
-                      onClick={handleStartVoiceRecording}
-                      className={`transition ${isDarkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-blue-500"}`}
-                      disabled={isSending || !!selectedFile || !!editingMessage}
-                      title="Record voice"
-                    >
-                      <FaMicrophone size={18} />
-                    </button>
-                  </div>
+                  {/* Mic Button */}
+                  <button
+                    type="button"
+                    onClick={handleStartVoiceRecording}
+                    className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full transition ${isDarkMode
+                      ? "text-gray-400 hover:text-blue-400 hover:bg-gray-600"
+                      : "text-gray-500 hover:text-blue-500 hover:bg-gray-200"
+                      }`}
+                    disabled={isSending || !!selectedFile || !!editingMessage}
+                    title="Record voice"
+                  >
+                    <FaMicrophone size={16} />
+                  </button>
                 </>
               )}
 
@@ -2533,7 +2869,7 @@ const GroupChat = () => {
               )}
             </div>
 
-            {/* Send Button */}
+            {/* Send Button — pill-shaped, same height as input container */}
             <button
               type="submit"
               onClick={(e) => {
@@ -2570,28 +2906,24 @@ const GroupChat = () => {
                   !isRecording) ||
                 isSending
               }
-              className={`${isEmbeddedMobilePreview ? "w-11 h-11 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-500 disabled:text-white/90 flex items-center justify-center flex-shrink-0" : "rounded-full p-3"} transition ${
-                !isEmbeddedMobilePreview &&
-                !messageText.trim() &&
+              className={`flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full transition ${!messageText.trim() &&
                 !selectedFile &&
                 !editingMessage &&
                 !recordedAudioFile &&
                 !isRecording
-                  ? isDarkMode
-                    ? "bg-gray-600 text-gray-400 cursor-not-allowed"
-                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : !isEmbeddedMobilePreview
-                    ? isDarkMode
-                      ? "bg-blue-700 hover:bg-blue-600 text-white"
-                      : "bg-blue-600 hover:bg-blue-700 text-white"
-                    : ""
-              }`}
-              title="Send message or voice"
+                ? isDarkMode
+                  ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                : isDarkMode
+                  ? "bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                  : "bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                }`}
+              title="Send message"
             >
               {isSending ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
               ) : (
-                <span>{editingMessage ? "✓" : <FaPaperPlane size={18} />}</span>
+                <FaPaperPlane size={15} />
               )}
             </button>
           </form>
@@ -2623,11 +2955,10 @@ const GroupChat = () => {
                   <button
                     type="button"
                     onClick={() => setForwardTargetType("same")}
-                    className={`w-full text-left px-4 py-3 rounded-lg border transition ${
-                      forwardTargetType === "same"
-                        ? "bg-blue-50 dark:bg-blue-900/30 border-blue-400 text-blue-700 dark:text-blue-300"
-                        : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
-                    }`}
+                    className={`w-full text-left px-4 py-3 rounded-lg border transition ${forwardTargetType === "same"
+                      ? "bg-blue-50 dark:bg-blue-900/30 border-blue-400 text-blue-700 dark:text-blue-300"
+                      : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
+                      }`}
                   >
                     <div className="font-medium">This Group</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -2638,11 +2969,10 @@ const GroupChat = () => {
                   <button
                     type="button"
                     onClick={() => setForwardTargetType("other")}
-                    className={`w-full text-left px-4 py-3 rounded-lg border transition ${
-                      forwardTargetType === "other"
-                        ? "bg-blue-50 dark:bg-blue-900/30 border-blue-400 text-blue-700 dark:text-blue-300"
-                        : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
-                    }`}
+                    className={`w-full text-left px-4 py-3 rounded-lg border transition ${forwardTargetType === "other"
+                      ? "bg-blue-50 dark:bg-blue-900/30 border-blue-400 text-blue-700 dark:text-blue-300"
+                      : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
+                      }`}
                   >
                     <div className="font-medium">Another Group</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
