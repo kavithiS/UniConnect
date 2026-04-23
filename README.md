@@ -21,28 +21,28 @@ The app combines profile-based discovery, group collaboration, project tracking,
 
 ## Features
 
-### Smart Matching
+### ✨Smart Matching
 Find collaborators who fit your skills, goals, and project needs.
 
-### Group Collaboration
+### ✨Group Collaboration
 Create groups, manage members, and work together with a shared structure.
 
-### Real-Time Chat
+### ✨Real-Time Chat
 Send live messages inside group rooms with instant Socket.IO updates.
 
-### Project and Task Management
+### ✨Project and Task Management
 Track work using project dashboards, task boards, and task detail views.
 
-### Join Requests and Invitations
+### ✨Join Requests and Invitations
 Handle group membership through a clean request and invitation workflow.
 
-### Personalized Experience
+### ✨Personalized Experience
 Move through login, profile setup, and the main dashboard with role-aware routing.
 
-### Feedback and Profile System
+### ✨Feedback and Profile System
 Build a stronger student presence and support peer feedback.
 
-### AI Chat Assistant
+### ✨AI Chat Assistant
 Ask for help, get guidance, and move around the platform faster.
 
 ## Tech Stack
